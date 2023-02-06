@@ -1,0 +1,209 @@
+tree
+version=v3
+num_class=1
+num_tree_per_iteration=1
+label_index=0
+max_feature_idx=43
+objective=binary sigmoid:1
+feature_names=GAtotal BWg SGA3rd TempC Sex_F Race_Black Race_White VentDay1_CPAP VentDay1_Hood VentDay1_SIMV Unassigned Archaea Bacteria Fungi BacteriaThermi BacteriaFusobacteria BacteriaAcidobacteria BacteriaActinobacteria FungiAscomycota BacteriaTM6 ArchaeaEuryarchaeota Fungiunidentified ArchaeaParvarchaeota BacteriaTenericutes BacteriaSpirochaetes BacteriaProteobacteria BacteriaFibrobacteres BacteriaDeferribacteres BacteriaVerrucomicrobia FungiMucoromycota BacteriaTM7 FungiBasidiomycota BacteriaChloroflexi BacteriaCyanobacteria BacteriaPlanctomycetes BacteriaBacteroidetes BacteriaFirmicutes BacteriaLentisphaerae BacteriaGN04 BacteriaArmatimonadetes BacteriaGemmatimonadetes FungiMortierellomycota ArchaeaCrenarchaeota BPD
+feature_infos=[22.100000000000001:39] [410:3510] none [34:37.700000000000003] none [0:1] none none none none [0:1] none [26:101] [0:26] none none none [0:22] [0:20] none none none none none none [7:49] none none none none none [0:10] none none none none [6:45] none none none none none none none
+tree_sizes=344 346 345 346
+
+Tree=0
+num_leaves=2
+num_cat=0
+split_feature=13
+split_gain=2.57278
+threshold=5.5000000000000009
+decision_type=2
+left_child=-1
+right_child=-2
+leaf_value=-0.72277595066381484 -0.6611846210284883
+leaf_weight=5.55555559694767 5.1111111491918564
+leaf_count=25 23
+internal_value=-0.693147
+internal_weight=0
+internal_count=48
+is_linear=0
+shrinkage=1
+
+
+Tree=1
+num_leaves=2
+num_cat=0
+split_feature=25
+split_gain=0.65981
+threshold=22.500000000000004
+decision_type=2
+left_child=-1
+right_child=-2
+leaf_value=-0.01560628451290324 0.015565011145649394
+leaf_weight=5.325450599193573 5.3391179740428925
+leaf_count=24 24
+internal_value=0
+internal_weight=0
+internal_count=48
+is_linear=0
+shrinkage=0.0657074
+
+
+Tree=2
+num_leaves=2
+num_cat=0
+split_feature=1
+split_gain=3.92151
+threshold=780.00000000000011
+decision_type=2
+left_child=-1
+right_child=-2
+leaf_value=0.0379482964290105 -0.038046794266949381
+leaf_weight=5.3387754261493683 5.3250742554664612
+leaf_count=24 24
+internal_value=0
+internal_weight=0
+internal_count=48
+is_linear=0
+shrinkage=0.0657074
+
+
+Tree=3
+num_leaves=2
+num_cat=0
+split_feature=1
+split_gain=3.46849
+threshold=780.00000000000011
+decision_type=2
+left_child=-1
+right_child=-2
+leaf_value=0.035270964879743273 -0.036215564817523624
+leaf_weight=5.404596209526062 5.2559846043586731
+leaf_count=24 24
+internal_value=0
+internal_weight=0
+internal_count=48
+is_linear=0
+shrinkage=0.0657074
+
+
+end of trees
+
+feature_importances:
+BWg=2
+Fungi=1
+BacteriaProteobacteria=1
+
+parameters:
+[boosting: gbdt]
+[objective: binary]
+[metric: auc]
+[tree_learner: serial]
+[device_type: cpu]
+[data: ]
+[valid: ]
+[num_iterations: 1344]
+[learning_rate: 0.0657074]
+[num_leaves: 71]
+[num_threads: 0]
+[deterministic: 0]
+[force_col_wise: 0]
+[force_row_wise: 0]
+[histogram_pool_size: -1]
+[max_depth: 15]
+[min_data_in_leaf: 23]
+[min_sum_hessian_in_leaf: 0.001]
+[bagging_fraction: 0.950438]
+[pos_bagging_fraction: 1]
+[neg_bagging_fraction: 1]
+[bagging_freq: 0]
+[bagging_seed: 3]
+[feature_fraction: 0.400668]
+[feature_fraction_bynode: 1]
+[feature_fraction_seed: 2]
+[extra_trees: 0]
+[extra_seed: 6]
+[early_stopping_round: 0]
+[first_metric_only: 0]
+[max_delta_step: 0]
+[lambda_l1: 0.588621]
+[lambda_l2: 0.531361]
+[linear_lambda: 0]
+[min_gain_to_split: 0]
+[drop_rate: 0.1]
+[max_drop: 50]
+[skip_drop: 0.5]
+[xgboost_dart_mode: 0]
+[uniform_drop: 0]
+[drop_seed: 4]
+[top_rate: 0.2]
+[other_rate: 0.1]
+[min_data_per_group: 100]
+[max_cat_threshold: 32]
+[cat_l2: 10]
+[cat_smooth: 10]
+[max_cat_to_onehot: 4]
+[top_k: 20]
+[monotone_constraints: ]
+[monotone_constraints_method: basic]
+[monotone_penalty: 0]
+[feature_contri: ]
+[forcedsplits_filename: ]
+[refit_decay_rate: 0.9]
+[cegb_tradeoff: 1]
+[cegb_penalty_split: 0]
+[cegb_penalty_feature_lazy: ]
+[cegb_penalty_feature_coupled: ]
+[path_smooth: 0]
+[interaction_constraints: ]
+[verbosity: -1]
+[saved_feature_importance_type: 0]
+[linear_tree: 0]
+[max_bin: 17]
+[max_bin_by_feature: ]
+[min_data_in_bin: 3]
+[bin_construct_sample_cnt: 200000]
+[data_random_seed: 1]
+[is_enable_sparse: 1]
+[enable_bundle: 1]
+[use_missing: 1]
+[zero_as_missing: 0]
+[feature_pre_filter: 1]
+[pre_partition: 0]
+[two_round: 0]
+[header: 0]
+[label_column: ]
+[weight_column: ]
+[group_column: ]
+[ignore_column: ]
+[categorical_feature: ]
+[forcedbins_filename: ]
+[precise_float_parser: 0]
+[objective_seed: 5]
+[num_class: 1]
+[is_unbalance: 0]
+[scale_pos_weight: 1]
+[sigmoid: 1]
+[boost_from_average: 1]
+[reg_sqrt: 0]
+[alpha: 0.9]
+[fair_c: 1]
+[poisson_max_delta_step: 0.7]
+[tweedie_variance_power: 1.5]
+[lambdarank_truncation_level: 30]
+[lambdarank_norm: 1]
+[label_gain: ]
+[eval_at: ]
+[multi_error_top_k: 1]
+[auc_mu_weights: ]
+[num_machines: 1]
+[local_listen_port: 12400]
+[time_out: 120]
+[machine_list_filename: ]
+[machines: ]
+[gpu_platform_id: -1]
+[gpu_device_id: -1]
+[gpu_use_dp: 0]
+[num_gpu: 1]
+
+end of parameters
+
+pandas_categorical:[]
