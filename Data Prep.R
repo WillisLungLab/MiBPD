@@ -1,14 +1,6 @@
 library(tidyverse)
 library(phyloseq)
 
-fung <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/ITS Attempt 2/mibpd_its_asv_table.csv")
-fung.taxa <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/ITS Attempt 2/mibpd_its_taxa_table.csv")
-roughmetadata_fung <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/Combined_Metadata_MiBPD_NewFactors.csv")
-
-combined <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/Combined/Gut_ASVs_Combined.csv")
-combined.taxa <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/Combined/Gut_ASVs_Combined_Taxa.csv")
-roughmetadata_combined <- read_csv("C:/Users/ashle/Documents/Exp2_New_ASVs/Combined_Metadata_MiBPD_NewFactors.csv")
-
 ####ITS Data Prep####
 
 #Load ASV table
