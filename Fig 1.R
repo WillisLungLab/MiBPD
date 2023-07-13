@@ -277,13 +277,13 @@ spiec.colors <- c("#aaaaaa","#74c476")
 ###PLOT NETWORK###
 library(igraph)
 ##BPD ONLY##
-#BPD only network plot with no legend
+#BPD only network plot with no taxa labels
 spiec.graph.gen.bpd=adj2igraph(getRefit(se.exp2.gen.bpd), vertex.attr=list(name=taxa_names(exp2_combined_gen_prev_noNA)))
 prev_gen_spiec_plot_bpd <- plot_network(spiec.graph.gen.bpd, exp2_combined_gen_prev_noNA, type='taxa',label="Genus", color="Kingdom") + theme(legend.position = "none")
 prev_gen_spiec_plot_bpd + scale_color_manual(values = spiec.colors)
 #Save
 
-#BPD only network plot with legend
+#BPD only network plot with taxa labels
 prev_gen_spiec_plot_bpd_legend <- plot_network(spiec.graph.gen.bpd, exp2_combined_gen_prev_noNA, type='taxa',label=NULL, color="Kingdom", point_size = 8, line_weight = 1)
 prev_gen_spiec_plot_bpd_legend + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 3)
 #Save
@@ -321,7 +321,12 @@ set.seed(1312)
 se.exp2.gen.pprd <- spiec.easi(list(exp2_prev_bact_pprd, exp2_prev_fung_pprd), method='mb', nlambda=99,
                                lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))
 
-#PPRD only network plot with legend
+#PPRD only network plot with no taxa labels
+prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_combined_gen_prev_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
+prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors)
+#Save
+                                    
+#PPRD only network plot with taxa labels
 prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_combined_gen_prev_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
 prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 3)
 #Save
