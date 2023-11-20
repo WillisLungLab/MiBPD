@@ -2,7 +2,6 @@ library(tidyverse)
 library(vegan)
 library(phyloseq)
 library(DESeq2)
-library(indicspecies)
 library(data.table)
 library(RColorBrewer)
 library(factoextra)
@@ -12,33 +11,8 @@ library(plyr)
 library(FSA)
 library(ecole)
 
-############################FIGURE 3A: ITS TOP 20 BARPLOT############################
 
-#Merge all samples together by BPD status and aggregate to Genus level
-exp2_fung_merged = merge_samples(exp2_fung_prev, "BPD_Sex")
-exp2_fung_gen_merged <- tax_glom(exp2_fung_merged, taxrank = 'Genus')
-
-#Identify top 19 genera and rename everything else to "Other"
-top20_fung_merged_list <- names(sort(taxa_sums(exp2_fung_gen_merged), decreasing=TRUE)[1:19])
-top20_merged_fung_rel <- transform_sample_counts(exp2_fung_gen_merged, function(x) x / sum(x) )
-top20_merged_fung_df <- psmelt(top20_merged_fung_rel)
-top20_merged_fung_df[!(top20_merged_fung_df$OTU %in% top20_fung_merged_list),]$Genus <- 'Other'
-
-
-###Barplot of top 20 fungal genera###
-barplot_colors <- colorRampPalette(brewer.pal(12, "Paired"))(20)
-
-barplot_gen_bpd_its <- ggplot(top20_merged_fung_df, aes(x = Sample, y = Abundance, fill = Genus)) +
-  geom_col(position = "stack") +
-  theme_bw() +
-  theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", plot.margin = unit(c(0.5,0.5,0.5,1),"cm"), legend.title = element_blank()) +
-  theme(axis.text.x = element_text(size=8.5)) +
-  theme(axis.text.x = element_text(angle=90)) 
-
-barplot_gen_bpd_its + scale_fill_manual(values = barplot_colors)
-#Save
-
-############################FIGURE 3B: ITS ALPHA DIVERSITY############################
+############################FIGURE 3A: ITS ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_fung <- prune_taxa(taxa_sums(exp2_fung_rough) > 0, exp2_fung_rough)
@@ -69,7 +43,7 @@ richness_est_fung <- richness_est_fung %>%
 #Save as .csv and use in GraphPad
 
 
-############################FIGURE 3C: MULTIKINGDOM ALPHA DIVERSITY############################
+############################FIGURE 3B: 16S ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_bact <- prune_taxa(taxa_sums(exp2_bact_rough) > 0, exp2_bact_rough)
@@ -97,7 +71,7 @@ richness_est_bact <- richness_est_bact %>%
 #Save as .csv
 
 
-############################FIGURE 3D: ITS BETA DIVERSITY PCoA############################
+############################FIGURE 3C: ITS BETA DIVERSITY PCoA############################
 
 #Convert to relative abundance instead of counts
 exp2_fung_rel_prev <- transform_sample_counts(exp2_fung_prev, function(x) x / sum(x) )
@@ -144,7 +118,8 @@ print(permanova_fung_pcoa)
 print(pairwise_permanova_fung_pcoa)
 print(permdisp_fung_pcoa)
 
-############################FIGURE 3E: MULTIKINGDOM BETA DIVERSITY PCoA############################
+
+############################FIGURE 3D: 16S BETA DIVERSITY PCoA############################
 
 exp2_bact_rel_prev <- transform_sample_counts(exp2_bact_prev, function(x) x / sum(x) )
 
@@ -189,7 +164,8 @@ print(permanova_bact_pcoa)
 print(pairwise_permanova_bact_pcoa)
 print(permdisp_bact_pcoa)
 
-############################FIGURE 3F: PPRD AMAB SPIEC-EASI NETWORK############################
+
+############################FIGURE 3E: PPRD AMAB SPIEC-EASI NETWORK############################
 
 ###DATA PREP###
 exp2_combined_30_gen <- filter_taxa(exp2_combined_30_gen, function(x) sum(x >= 1) > (0.30*length(x)), TRUE)
@@ -237,7 +213,7 @@ nodes_pprd_amab <- gorder(spiec.graph.gen.pprd.amab)
 edges_pprd_amab <- gsize(spiec.graph.gen.pprd.amab)
 
 
-############################Figure 3G: PPRD AFAB SPIEC-EASI NETWORK############################
+############################Figure 3F: PPRD AFAB SPIEC-EASI NETWORK############################
 
 #Run SPIEC-EASI
 se.exp2.gen.pprd.afab <- spiec.easi(list(exp2_combined_16s_pprd_afab, exp2_combined_its_pprd_afab), method='mb', nlambda=99,
@@ -260,7 +236,7 @@ nodes_pprd_afab <- gorder(spiec.graph.gen.pprd.afab)
 edges_pprd_afab <- gsize(spiec.graph.gen.pprd.afab)
 
 
-############################Figure 3H: BPD AMAB SPIEC-EASI NETWORK############################
+############################Figure 3G: BPD AMAB SPIEC-EASI NETWORK############################
 
 set.seed(1312)
 se.exp2.gen.bpd.amab <- spiec.easi(list(exp2_combined_16s_bpd_amab, exp2_combined_its_bpd_amab), method='mb', nlambda=99,
@@ -281,7 +257,7 @@ nodes_bpd_amab <- gorder(spiec.graph.gen.bpd.amab)
 edges_bpd_amab <- gsize(spiec.graph.gen.bpd.amab)
 
 
-############################Figure 3I: BPD AFAB SPIEC-EASI NETWORK############################
+############################Figure 3H: BPD AFAB SPIEC-EASI NETWORK############################
 
 se.exp2.gen.bpd.afab <- spiec.easi(list(exp2_combined_16s_bpd_afab, exp2_combined_its_bpd_afab), method='mb', nlambda=99,
                                    lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))

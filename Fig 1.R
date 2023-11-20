@@ -2,7 +2,6 @@ library(tidyverse)
 library(vegan)
 library(phyloseq)
 library(DESeq2)
-library(indicspecies)
 library(data.table)
 library(RColorBrewer)
 library(factoextra)
@@ -11,34 +10,8 @@ library(igraph)
 library(plyr)
 library(ggpubr)
 
-############################FIGURE 1A: ITS TOP 20 BARPLOT############################
 
-#Merge all samples together by BPD status and aggregate to Genus level
-exp2_fung_merged = merge_samples(exp2_fung_prev, "BPD")
-exp2_fung_gen_merged <- tax_glom(exp2_fung_merged, taxrank = 'Genus')
-
-#Identify top 19 genera and rename everything else to "Other"
-top20_fung_merged_list <- names(sort(taxa_sums(exp2_fung_gen_merged), decreasing=TRUE)[1:19])
-top20_merged_fung_rel <- transform_sample_counts(exp2_fung_gen_merged, function(x) x / sum(x) )
-top20_merged_fung_df <- psmelt(top20_merged_fung_rel)
-top20_merged_fung_df[!(top20_merged_fung_df$OTU %in% top20_fung_merged_list),]$Genus <- 'Other'
-
-
-###Barplot of top 20 fungal genera###
-barplot_colors <- colorRampPalette(brewer.pal(12, "Paired"))(20)
-
-barplot_gen_bpd_its <- ggplot(top20_merged_fung_df, aes(x = Sample, y = Abundance, fill = Genus)) +
-  geom_col(position = "stack") +
-  theme_bw() +
-  theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", plot.margin = unit(c(0.5,0.5,0.5,1),"cm"), legend.title = element_blank()) +
-  facet_wrap(~BPD,scales = "free") +
-  theme(axis.text.x = element_text(size=8.5)) +
-  theme(axis.text.x = element_text(angle=90)) 
-
-barplot_gen_bpd_its + scale_fill_manual(values = barplot_colors)
-#Save
-
-############################FIGURE 1B: ITS ALPHA DIVERSITY############################
+############################FIGURE 1A: ITS ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_fung <- prune_taxa(taxa_sums(exp2_fung_rough) > 0, exp2_fung_rough)
@@ -61,7 +34,7 @@ richness_est_fung <- richness_est_fung %>%
 #Save as .csv and use in GraphPad
 
 
-############################FIGURE 1C: MULTIKINGDOM ALPHA DIVERSITY############################
+############################FIGURE 1B: 16S ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_bact <- prune_taxa(taxa_sums(exp2_bact_rough) > 0, exp2_bact_rough)
@@ -83,7 +56,7 @@ richness_est_bact <- richness_est_bact %>%
   )
 #Save as .csv and use in GraphPad
 
-############################FIGURE 1D: ITS BETA DIVERSITY PCoA############################
+############################FIGURE 1C: ITS BETA DIVERSITY PCoA############################
 
 #Convert to relative abundance instead of counts
 exp2_fung_rel_prev <- transform_sample_counts(exp2_fung_prev, function(x) x / sum(x) )
@@ -125,7 +98,7 @@ permdisp_fung_pcoa <- permutest(disp_fung_pcoa, permutations = 10000)
 print(permanova_fung_pcoa)
 print(permdisp_fung_pcoa)
 
-############################FIGURE 1E: ITS BETA DIVERSITY LOADING PLOT + PCA############################
+############################FIGURE 1D: ITS BETA DIVERSITY LOADING PLOT + PCA############################
 
 exp2_fung_otu <- as.data.frame(t(exp2_fung_prev@otu_table))
 exp2_fung_tax <- as.data.frame(exp2_fung_prev@tax_table)
@@ -174,7 +147,8 @@ permdisp_fung_pca <- permutest(disp_fung_pca, permutations = 10000)
 print(permanova_fung_pcoa)
 print(permdisp_fung_pca)
 
-############################FIGURE 1F: 16S BETA DIVERSITY PCoA############################
+
+############################FIGURE 1E: 16S BETA DIVERSITY PCoA############################
 
 exp2_bact_rel_prev <- transform_sample_counts(exp2_bact_prev, function(x) x / sum(x) )
 
@@ -215,7 +189,8 @@ permdisp_bact_pcoa <- permutest(disp_bact_pcoa, permutations = 10000)
 print(permanova_bact_pcoa)
 print(permdisp_bact_pcoa)
 
-############################FIGURE 1G: 16S BETA DIVERSITY LOADING PLOT + PCA############################
+
+############################FIGURE 1F: 16S BETA DIVERSITY LOADING PLOT + PCA############################
 
 exp2_bact_otu <- as.data.frame(t(exp2_bact_prev@otu_table))
 exp2_bact_tax <- as.data.frame(exp2_bact_prev@tax_table)
@@ -268,9 +243,8 @@ print(permanova_bact_pca)
 print(permdisp_bact_pca)
 
 
-############################FIGURE 1H: BPD SPIEC-EASI NETWORK############################
 
-###DATA PREP###
+###SPIEC-EASI DATA PREP###
 #Using the data aggregated to Genus level + 30% prevalence filter
 exp2_combined_gen <- tax_glom(exp2_combined, taxrank = "Genus")
 exp2_combined_30_gen <- filter_taxa(exp2_combined_gen, function(x) sum(x >= 1) > (0.30*length(x)), TRUE)
@@ -285,6 +259,30 @@ exp2_combined_its = subset_taxa(exp2_combined_30_gen, Kingdom=="Fungi")
 exp2_combined_its_bpd = subset_samples(exp2_combined_its, BPD=="BPD")
 exp2_combined_its_pprd = subset_samples(exp2_combined_its, BPD=="No_BPD")
 
+
+############################FIGURE 1G: PPRD SPIEC-EASI NETWORK############################
+
+###PPRD SPIEC-EASI###
+set.seed(1312)
+se.exp2.gen.pprd <- spiec.easi(list(exp2_combined_16s_pprd, exp2_combined_its_pprd), method='mb', nlambda=99,
+                               lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))
+
+#PPRD only network plot with labels
+spiec.graph.gen.pprd=adj2igraph(getRefit(se.exp2.gen.pprd), vertex.attr=list(name=taxa_names(exp2_combined_30_gen_noNA)))
+prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_combined_30_gen_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
+prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 2)
+#Save
+
+##PPRD only network plot without labels
+prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors)
+#Save
+
+#Get the nodes and edge counts
+nodes_pprd <- gorder(spiec.graph.gen.pprd)
+edges_pprd <- gsize(spiec.graph.gen.pprd)
+
+
+############################FIGURE 1H: BPD SPIEC-EASI NETWORK############################
 
 ###BPD SPIEC-EASI###
 set.seed(1312)
@@ -310,25 +308,3 @@ prev_gen_spiec_plot_bpd + scale_color_manual(values = spiec.colors)
 #Get number of nodes and edges
 nodes_bpd <- gorder(spiec.graph.gen.bpd)
 edges_bpd <- gsize(spiec.graph.gen.bpd)
-
-
-############################FIGURE 1I: PPRD SPIEC-EASI NETWORK############################
-
-###PPRD SPIEC-EASI###
-set.seed(1312)
-se.exp2.gen.pprd <- spiec.easi(list(exp2_combined_16s_pprd, exp2_combined_its_pprd), method='mb', nlambda=99,
-                               lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))
-
-#PPRD only network plot with labels
-spiec.graph.gen.pprd=adj2igraph(getRefit(se.exp2.gen.pprd), vertex.attr=list(name=taxa_names(exp2_combined_30_gen_noNA)))
-prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_combined_30_gen_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
-prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 2)
-#Save
-
-##PPRD only network plot without labels
-prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors)
-#Save
-
-#Get the nodes and edge counts
-nodes_pprd <- gorder(spiec.graph.gen.pprd)
-edges_pprd <- gsize(spiec.graph.gen.pprd)
