@@ -30,24 +30,9 @@ dadaFs <- dada(filtFs, err=errF, multithread=TRUE, pool = TRUE)
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE, pool = TRUE)
 
 #Merge three different ways: Merge with no mismatches, merge with some mismatches allowed, and concatenation
-cat("\n\nperfect match merging....\n")
 mergedData <- mergePairs(dadaFs,filtFs, dadaRs, filtRs,maxMismatch=0, trimOverhang=TRUE, returnRejects=TRUE, verbose=TRUE)
-# maxMismatch > 0 has lower penalty for mismatch and gap for nwalgin (-8)
-cat("\n\nmismatch allowed merging....\n")
 mismatch_mergers <- mergePairs(dadaFs,filtFs, dadaRs, filtRs, maxMismatch=2, trimOverhang=TRUE, returnRejects=TRUE, verbose=TRUE)
-cat("\n\nconcatenation merging....\n")
 concats <- mergePairs(dadaFs,filtFs, dadaRs, filtRs, justConcatenate=TRUE, verbose=TRUE)
-
-# Save dataframes with merged sequences
-sapply(names(mergedData), function (x) write.table(mergedData[[x]], file=paste(x, "strict_mergers.txt", sep="_"),
-                                                   sep="\t", row.names=FALSE, quote=FALSE) )
-
-sapply(names(mismatch_mergers), function (x) write.table(mismatch_mergers[[x]], file=paste(x, "loose_mergers.txt", sep="_"),
-                                                         sep="\t", row.names=FALSE, quote=FALSE) )
-
-# converting concat df to matrix to overcome error of - unimplemented type 'list' in 'EncodeElement' 
-sapply(names(concats), function (x) write.table(as.matrix(concats[[x]]), file=paste(x, "all_concats.txt", sep="_"),
-                                                sep="\t", row.names=FALSE, quote=FALSE) )
 
 #This function keeps the zero mismatch merging where available, then adds either mismatched merging (where available) or concatenated reads to rows that did not merge under the no mismatch parameters
 for(i in names(mergedData)) {
@@ -62,16 +47,13 @@ for(i in names(mergedData)) {
   rownames(concatDf) = paste(concatDf$forward, concatDf$reverse, sep="_")
   
   for (row in 1:nrow(mergedDf)) {
-    # skipping rows that are good to go from default analysis
     if (mergedDf[row,]$accept) { next }
     
     uniquePairID = paste(mergedDf[row,]$forward, mergedDf[row,]$reverse, sep="_")
     
-    # if match length is less than 12 then good to go with concatenation
     if (mismatchDf[uniquePairID,]$nmatch <= 12) {
       mergedDf[row,] = concatDf[uniquePairID,]
     }
-    # ignoring ASVs with many mismatches with long overlap
     else{
       misMatchIndels = mismatchDf[row,]$nmismatch + mismatchDf[row,]$nindel
       cutOff = 0
@@ -88,11 +70,7 @@ for(i in names(mergedData)) {
       if (misMatchIndels <= cutOff) {
         mergedDf[row,] = mismatchDf[uniquePairID,]
       } 
-      # discard if mismatches are high in longer than 100bp match 
-      # else if (cutOff==3 && misMatchIndels > 3) {
-      # 	rowsToDelete = c(rowsToDelete, row)
-      # }
-      # concatenate if mismatches are high in overlap region remove reverse read part of the overlap region 
+
       else {
         trimLength = mismatchDf[uniquePairID,]$nmatch
         concatDf[uniquePairID,]$sequence = gsub(paste0("N{10}[A-z]{", trimLength, "}"), "NNNNNNNNNN", concatDf[uniquePairID,]$sequence)
@@ -184,24 +162,9 @@ dadaRs2 <- dada(filtRs2, err=errR2, multithread=TRUE, pool = "pseudo")
 saveRDS(dadaRs2, "dadaRs2_16s_gut.rds")
 
 #Merge using same strategy as in ITS
-cat("\n\nperfect match merging....\n")
 mergedData2 <- mergePairs(dadaFs2,filtFs2, dadaRs2, filtRs2,maxMismatch=0, trimOverhang=TRUE, returnRejects=TRUE, verbose=TRUE)
-# maxMismatch > 0 has lower penalty for mismatch and gap for nwalgin (-8)
-cat("\n\nmismatch allowed merging....\n")
 mismatch_mergers2 <- mergePairs(dadaFs2,filtFs2, dadaRs2, filtRs2, maxMismatch=2, trimOverhang=TRUE, returnRejects=TRUE, verbose=TRUE)
-cat("\n\nconcatenation merging....\n")
 concats2 <- mergePairs(dadaFs2,filtFs2, dadaRs2, filtRs2, justConcatenate=TRUE, verbose=TRUE)
-
-# save sample merge dfs for diff comparisions
-sapply(names(mergedData2), function (x) write.table(mergedData2[[x]], file=paste(x, "strict_mergers.txt", sep="_"),
-                                                    sep="\t", row.names=FALSE, quote=FALSE) )
-
-sapply(names(mismatch_mergers2), function (x) write.table(mismatch_mergers2[[x]], file=paste(x, "loose_mergers.txt", sep="_"),
-                                                          sep="\t", row.names=FALSE, quote=FALSE) )
-
-# converting concat df to matrix to overcome error of - unimplemented type 'list' in 'EncodeElement' 
-sapply(names(concats2), function (x) write.table(as.matrix(concats2[[x]]), file=paste(x, "all_concats2.txt", sep="_"),
-                                                 sep="\t", row.names=FALSE, quote=FALSE) )
 
 # replace mismatched or concatenated ASVs in the main mergedData2
 for(i in names(mergedData2)) {
@@ -221,11 +184,9 @@ for(i in names(mergedData2)) {
     
     uniquePairID = paste(mergedDf[row,]$forward, mergedDf[row,]$reverse, sep="_")
     
-    # if match length is less than 12 then good to go with concatenation
     if (mismatchDf[uniquePairID,]$nmatch <= 12) {
       mergedDf[row,] = concatDf[uniquePairID,]
     }
-    # ignoring ASVs with many mismatches with long overlap
     else{
       misMatchIndels = mismatchDf[row,]$nmismatch + mismatchDf[row,]$nindel
       cutOff = 0
@@ -238,15 +199,9 @@ for(i in names(mergedData2)) {
       else if (mismatchDf[uniquePairID,]$nmatch > 100) {
         cutOff = 3
       }
-      # check if mismatches are below cut off
       if (misMatchIndels <= cutOff) {
         mergedDf[row,] = mismatchDf[uniquePairID,]
       } 
-      # discard if mismatches are high in longer than 100bp match 
-      # else if (cutOff==3 && misMatchIndels > 3) {
-      # 	rowsToDelete = c(rowsToDelete, row)
-      # }
-      # concatenate if mismatches are high in overlap region remove reverse read part of the overlap region 
       else {
         trimLength = mismatchDf[uniquePairID,]$nmatch
         concatDf[uniquePairID,]$sequence = gsub(paste0("N{10}[A-z]{", trimLength, "}"), "NNNNNNNNNN", concatDf[uniquePairID,]$sequence)
