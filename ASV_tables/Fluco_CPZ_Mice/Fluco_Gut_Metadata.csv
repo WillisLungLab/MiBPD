@@ -1,0 +1,17 @@
+﻿Name,organ,condition,Mouse,treatment,Sample Name
+G1,Gut,HO,Jackson Labs,Fluconazole,Fluco HO
+G2,Gut,HO,Jackson Labs,Fluconazole,Fluco HO
+G3,Gut,HO,Jackson Labs,Fluconazole,Fluco HO
+G4,Gut,HO,Jackson Labs,Fluconazole,Fluco HO
+G5,Gut,NO,Jackson Labs,Fluconazole,Fluco NO
+G6,Gut,NO,Jackson Labs,Fluconazole,Fluco NO
+G7,Gut,NO,Jackson Labs,Fluconazole,Fluco NO
+G8,Gut,NO,Jackson Labs,Fluconazole,Fluco NO
+G9,Gut,HO,Jackson Labs,SPF,SPF HO
+G10,Gut,HO,Jackson Labs,SPF,SPF HO
+G11,Gut,HO,Jackson Labs,SPF,SPF HO
+G12,Gut,HO,Jackson Labs,SPF,SPF HO
+G13,Gut,NO,Jackson Labs,SPF,SPF NO
+G14,Gut,NO,Jackson Labs,SPF,SPF NO
+G15,Gut,NO,Jackson Labs,SPF,SPF NO
+G16,Gut,NO,Jackson Labs,SPF,SPF NO

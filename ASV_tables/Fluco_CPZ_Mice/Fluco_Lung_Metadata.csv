@@ -1,0 +1,17 @@
+﻿Name,organ,condition,Mouse,treatment,Sample Name
+L1,Lung,HO,Jackson Labs,Fluconazole,Fluco HO
+L2,Lung,HO,Jackson Labs,Fluconazole,Fluco HO
+L3,Lung,HO,Jackson Labs,Fluconazole,Fluco HO
+L4,Lung,HO,Jackson Labs,Fluconazole,Fluco HO
+L5,Lung,NO,Jackson Labs,Fluconazole,Fluco NO
+L6,Lung,NO,Jackson Labs,Fluconazole,Fluco NO
+L7,Lung,NO,Jackson Labs,Fluconazole,Fluco NO
+L8,Lung,NO,Jackson Labs,Fluconazole,Fluco NO
+L9,Lung,HO,Jackson Labs,SPF,SPF HO
+L10,Lung,HO,Jackson Labs,SPF,SPF HO
+L11,Lung,HO,Jackson Labs,SPF,SPF HO
+L12,Lung,HO,Jackson Labs,SPF,SPF HO
+L13,Lung,NO,Jackson Labs,SPF,SPF NO
+L14,Lung,NO,Jackson Labs,SPF,SPF NO
+L15,Lung,NO,Jackson Labs,SPF,SPF NO
+L16,Lung,NO,Jackson Labs,SPF,SPF NO
