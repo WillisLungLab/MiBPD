@@ -131,10 +131,10 @@ ellipse_colors <- c("#94D57F","#000000","#94D57F","#000000")
 dpi=600
 tiff("Fig 5B PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
 plot(c(-0.4, 0.6), c(-0.5, 0.4), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
-points(fig5_combined_fluco_lung_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors1[type_fig5], lwd = 1)
-points(fig5_combined_fluco_lung_rel_pcoa$vectors[,1:2], pch = 1, cex = 1.3, col = pca_colors2[type_fig5], lwd = 1)
-ordiellipse(fig5_combined_fluco_lung_rel_pcoa$vectors[,1:2], factor_fig5,kind = "se", conf = 0.95, col = ellipse_colors)
-ordispider(fig5_combined_fluco_lung_rel_pcoa$vectors[,1:2], factor_fig5, label = TRUE)
+points(fig5_combined_fluco_lung_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors1[type_fig5], lwd = 1)
+points(fig5_combined_fluco_lung_pcoa$vectors[,1:2], pch = 1, cex = 1.3, col = pca_colors2[type_fig5], lwd = 1)
+ordiellipse(fig5_combined_fluco_lung_pcoa$vectors[,1:2], factor_fig5,kind = "se", conf = 0.95, col = ellipse_colors)
+ordispider(fig5_combined_fluco_lung_pcoa$vectors[,1:2], factor_fig5, label = TRUE)
 dev.off()
 
 #Significance test with PERMANOVA, pairwise PERMANOVA, and PERMDISP
