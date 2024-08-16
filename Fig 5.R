@@ -287,7 +287,7 @@ fig5_combined_fluco_gut <- phyloseq(OTU, TAX, samples)
 
 
 
-###Fig 5B: gut SHANNON ALPHA DIVERSITY###
+###Fig 5C: GUT SHANNON ALPHA DIVERSITY###
 
 fr_combined_fluco_gut <- prune_taxa(taxa_sums(fig5_gut_combined_rough) > 0, fig5_gut_combined_rough)
 richness_est_combined_fluco_gut <- estimate_richness(fr_combined_fluco_gut, measures = c("Shannon"))
@@ -306,7 +306,7 @@ richness_est_combined_fluco_gut <- richness_est_combined_fluco_gut %>%
 #Save data table and open it in Graphpad to create plot
 
 
-###Fig 5B: gut BRAY-CURTIS BETA DIVERSITY PCOA###
+###Fig 5C: GUT BRAY-CURTIS BETA DIVERSITY PCOA###
 
 fig5_combined_fluco_gut_rel <- transform_sample_counts(fig5_combined_fluco_gut, function(x) x / sum(x) )
 
@@ -330,7 +330,7 @@ ellipse_colors <- c("#94D57F","#000000","#94D57F","#000000")
 
 #Plot PCoA
 dpi=600
-tiff("Fig 5B PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
+tiff("Fig 5C PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
 plot(c(-0.6, 0.3), c(-0.3, 0.2), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
 points(fig5_combined_fluco_gut_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors1[type_fig5], lwd = 1)
 points(fig5_combined_fluco_gut_pcoa$vectors[,1:2], pch = 1, cex = 1.3, col = pca_colors2[type_fig5], lwd = 1)
@@ -355,7 +355,7 @@ print(pairwise_permanova_combined_fluco_gut_pcoa)
 print(permdisp_combined_fluco_gut_pcoa)
 
 
-###Fig 5B: gut BETA DIVERSITY PCA###
+###Fig 5C: GUT BETA DIVERSITY PCA###
 
 fig5_combined_fluco_gut_rel <- transform_sample_counts(fig5_combined_fluco_gut, function(x) x / sum(x) )
 
@@ -375,14 +375,14 @@ labels_fig5_combined_fluco_gut <- orditorp(fig5_combined_fluco_gut_otu_pca, "sp"
 
 #PCA Loading Plot
 dpi = 600
-tiff("Fig 5B PCA Loading Plot.tif", width=5*dpi, height=5*dpi, res=dpi)
+tiff("Fig 5C PCA Loading Plot.tif", width=5*dpi, height=5*dpi, res=dpi)
 biplot(fig5_combined_fluco_gut_otu_pca, display = c("species"), type = c("points"), col = "grey",font = 2, font.lab = 2, xlab="PC1 (70.77% Explained)", ylab="PC2 (11.23% Explained)", ylim = c(-0.8,0.6),xlim = c(-0.6,0.5))
 orditorp(fig5_combined_fluco_gut_otu_pca, "sp", label = fig5_combined_fluco_gut_tax$Genus, priority=priority_fig5_combined_fluco_gut, select = (labels_fig5_combined_fluco_gut == TRUE), cex = 0.7)
 dev.off()
 
 #PCA sample plot
 #Color and factor mappings are the same as the PCoA
-tiff("Fig 5B PCA.tif", width=5*dpi, height=5*dpi, res=dpi)
+tiff("Fig 5C PCA.tif", width=5*dpi, height=5*dpi, res=dpi)
 plot(c(-0.6,0.4),c(-0.5,0.8), font = 2, font.lab = 2, xlab="PC1 (70.77% Explained)", ylab="PC2 (11.23% Explained)", type="n")
 points(fig5_combined_fluco_gut_otu_pca, pch = 21, cex = 1.3, bg = pca_colors1[factor_fig5], lwd = 1)
 points(fig5_combined_fluco_gut_otu_pca, pch = 1, cex = 1.3, col = pca_colors2[factor_fig5], lwd = 1)
