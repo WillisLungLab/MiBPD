@@ -1,45 +1,70 @@
 library(tidyverse)
-library(readxl)
-library(vegan)
 library(phyloseq)
-library(DESeq2)
-library(data.table)
-library(RColorBrewer)
-library(ggpubr)
-library(factoextra)
+library(plyr)
+library(vegan)
 library(ecole)
 
-#############Fig. 6A: Gut ITS#############
+###Fig. 6B: LUNG MULTIKINGDOM###
 
-fung_mouse <- read_csv("Mouse_Gut_ITS_ASVs.csv")
-fung.mouse.taxa <- read_csv("Mouse_Gut_ITS_Taxa.csv")
-roughmetadata_fung_mouse <- read_csv("Mouse_Gut_Metadata.csv")
-###Data Prep###
-#Load ASV table
-fung_mouse <- fung_mouse %>%
+###DATA PREP###
+
+#Load data
+fung_cpz_lung <- read_csv("Fluco_CPZ_Lung_ITS_ASV.csv")
+fung.cpz.lung.taxa <- read_csv("Fluco_CPZ_Lung_ITS_Taxa.csv")
+
+fung_cpz_lung <- fung_cpz_lung %>%
   tibble::column_to_rownames("Name")
 
-#Load taxonomy table
-#Convert sample names to row names and convert to a matrix to make converting to phyloseq easier
-fung.mouse.taxa <- fung.mouse.taxa %>%
+fung.cpz.lung.taxa <- fung.cpz.lung.taxa %>%
   tibble::column_to_rownames("Name")
-fung.mouse.taxa <- as.matrix(fung.mouse.taxa)
 
-#Load metadata
-fung.mouse.sort <- fung_mouse[,order(colnames(fung_mouse))]
-md.fung.mouse <- roughmetadata_fung_mouse[which(unlist(roughmetadata_fung_mouse$Name) %in% colnames(fung.mouse.sort)),]
-summary(colSums(fung.mouse.sort))
+bact_cpz_lung <- read_csv("Fluco_CPZ_Lung_16S_ASV.csv")
+bact.cpz.lung.taxa <- read_csv("Fluco_CPZ_16S_Taxa.csv")
 
-#Create phyloseq object with unfiltered data for alpha diversity
-OTU_rough = otu_table(fung.mouse.sort, taxa_are_rows = TRUE)
-TAX_rough = tax_table(fung.mouse.taxa)
-md.fung.mouse <- md.fung.mouse %>%
+bact_cpz_lung <- bact_cpz_lung %>%
   tibble::column_to_rownames("Name")
-samples_rough = sample_data(md.fung.mouse)
-exp2_fung_mouse_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
 
-fung.mouse.sort2 <- fung.mouse.sort[,c(which(colSums(fung.mouse.sort)>=50))]
-md.fung.mouse.sort2 <- md.fung.mouse[which(row.names(md.fung.mouse) %in% colnames(fung.mouse.sort2)),]
+bact.cpz.lung.taxa <- bact.cpz.lung.taxa %>%
+  tibble::column_to_rownames("Name")
+
+roughmetadata_combined_cpz_lung <- read_csv("CPZ_Lung_Metadata.csv")
+
+#Renaming the ITS ASVs so they don't overlap with 16S ASV names
+row.names(fung_cpz_lung) <- paste("ASV",5386:5658,sep="")
+bact_cpz_lung <-as.data.frame(t(bact_cpz_lung))
+
+combined <- rbind.fill(bact_cpz_lung,fung_cpz_lung)
+rownames(combined) <- c(row.names(bact_cpz_lung),row.names(fung_cpz_lung))
+combined[is.na(combined)] <- 0
+
+#Combine 16S and ITS taxonomy tables, rename the ASVs in the taxonomy table to match the new ITS names
+row.names(fung.cpz.lung.taxa) <- paste("ASV",5386:5658,sep="")
+combined.taxa <- rbind.fill(as.data.frame(bact.cpz.lung.taxa),as.data.frame(fung.cpz.lung.taxa))
+rownames(combined.taxa) <- c(row.names(bact.cpz.lung.taxa),row.names(fung.cpz.lung.taxa))
+
+combined.taxa <- as.matrix(combined.taxa)
+
+combined.sort <- combined[,order(colnames(combined))]
+md.combined <- roughmetadata_combined_cpz_lung[which(unlist(roughmetadata_combined_cpz_lung$Name) %in% colnames(combined.sort)),]
+
+#Shows distribution of read depth
+summary(colSums(combined.sort))
+
+md.combined <- md.combined %>%
+  tibble::column_to_rownames("Name")
+
+#Filter out samples with read depth <50, 0 removed
+combined.sort2 <- combined.sort[,c(which(colSums(combined.sort)>=50))]
+combined.taxa2 <- combined.taxa[row.names(combined.taxa) %in% row.names(combined.sort2),]
+md.combined.sort2 <- md.combined[which(row.names(md.combined) %in% colnames(combined.sort2)),]
+
+OTU_rough = otu_table(combined.sort2, taxa_are_rows = TRUE)
+TAX_rough = tax_table(combined.taxa)
+samples_rough = sample_data(md.combined.sort2)
+
+#Convert ITS data to phyloseq object 
+fig6_lung_combined_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
+
 
 #This is the same
 gt0 <- function(vec){
@@ -48,380 +73,337 @@ gt0 <- function(vec){
   return(s)
 }
 
-fung_mouse.nsampls <- apply(fung.mouse.sort2, 1, gt0)
-fung_mouse.clean <- fung.mouse.sort2[which(fung_mouse.nsampls>1),]
-
-
-#Setup to create the phyloseq object
-OTU = otu_table(fung_mouse.clean, taxa_are_rows = TRUE)
-TAX = tax_table(fung.mouse.taxa)
-samples = sample_data(md.fung.mouse.sort2)
-
-#Convert!
-exp2_fung_mouse <- phyloseq(OTU, TAX, samples)
-exp2_fung_mouse_prev <- filter_taxa(exp2_fung_mouse , function(x) sum(x >= 1) > (0.05*length(x)), TRUE)
-
-###Alpha Diversity###
-fr_fung_mouse <- prune_taxa(taxa_sums(exp2_fung_mouse_rough) > 0, exp2_fung_mouse_rough)
-richness_est_fung_mouse <- estimate_richness(fr_fung_mouse, measures = c("Simpson", "Shannon"))
-
-wilcox_alpha_fung_mouse <- t(sapply(richness_est_fung_mouse, function(x) unlist(kruskal.test(x~sample_data(fr_fung_mouse)$Condition)[c("estimate","p.value","statistic","conf.int")])))
-wilcox_alpha_fung_mouse
-
-richness_est_fung_mouse <- richness_est_fung_mouse %>%
-  mutate(
-    Organ = md.fung.mouse$Organ,
-    Oxygen = md.fung.mouse$Oxygen,
-    FMT = md.fung.mouse$FMT,
-    Condition  = md.fung.mouse$Condition
-  )
-
-#Save as .csv
-
-###Beta Diversity###
-
-exp2_fung_mouse_rel_prev <- transform_sample_counts(exp2_fung_mouse_prev, function(x) x / sum(x) )
-
-exp2_fung_mouse_otu_rel <- as.data.frame(t(exp2_fung_mouse_rel_prev@otu_table))
-exp2_fung_mouse_tax_rel <- as.data.frame(exp2_fung_mouse_rel_prev@tax_table)
-exp2_fung_mouse_meta_rel <- as.data.frame(exp2_fung_mouse_rel_prev@sam_data)
-
-exp2_fung_mouse_rel_bray = vegdist(exp2_fung_mouse_otu_rel, method='bray', na.rm = TRUE)
-exp2_fung_mouse_rel_pcoa <- ape::pcoa(exp2_fung_mouse_rel_bray)
-exp2_fung_mouse_rel_pcoa$values
-
-factor2_exp2 <- as.factor(exp2_fung_mouse_meta_rel$Condition)
-type2_exp2 <- as.numeric(factor2_exp2)
-pca_colors <- c("#007016","#007016","#94D57F","#94D57F")
-
-dpi=600
-tiff("Fig 6A PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
-plot(c(-0.5, 0.6), c(-0.6, 0.6), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
-points(exp2_fung_mouse_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors[type2_exp2], lwd = 1)
-ordispider(exp2_fung_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, label = TRUE)
-ordiellipse(exp2_fung_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, kind = "se", conf = 0.95, col = pca_colors)
-dev.off()
-
-permanova_pcoa_df <- data.frame(exp2_fung_mouse_meta_rel)
-set.seed(1312)
-permanova_fung_mouse_pcoa <- vegan::adonis2(exp2_fung_mouse_otu_rel ~ Condition, data = permanova_pcoa_df, method="bray", permutations = 10000)
-
-pairwise_permanova_fung_mouse_pcoa <- permanova_pairwise(exp2_fung_mouse_otu_rel, grp = permanova_pcoa_df$Condition, permutations = 10000, method = "bray", padj = "fdr")
-
-fung_mouse_pcoa_dist <- vegdist(exp2_fung_mouse_otu_rel, method = "bray")
-disp_fung_mouse_pcoa <- betadisper(fung_mouse_pcoa_dist, permanova_pcoa_df$Condition)
-set.seed(1312)
-permdisp_fung_mouse_pcoa <- permutest(disp_fung_mouse_pcoa, permutations = 10000)
-
-print(permanova_fung_mouse_pcoa)
-print(pairwise_permanova_fung_mouse_pcoa)
-print(permdisp_fung_mouse_pcoa)
-
-
-#############Fig. 6B: Gut 16S#############
-
-###Data Prep###
-
-bact_mouse <- read_csv("Mouse_Gut_16s_ASVs.csv")
-bact.mouse.taxa <- read_csv("Mouse_Gut_16s_Taxa.csv")
-roughmetadata_bact_mouse <- read_csv("Mouse_Gut_Metadata.csv")
-
-#Load ASV table
-bact_mouse <- bact_mouse %>%
-  tibble::column_to_rownames("Name")
-
-#Load taxonomy table
-#Convert sample names to row names and convert to a matrix to make converting to phyloseq easier
-bact.mouse.taxa <- bact.mouse.taxa %>%
-  tibble::column_to_rownames("Name")
-bact.mouse.taxa <- as.matrix(bact.mouse.taxa)
-
-#Load metadata file
-bact_mouse.sort <- bact_mouse[,order(colnames(bact_mouse))]
-md.bact_mouse <- roughmetadata_bact_mouse[which(unlist(roughmetadata_bact_mouse$Name) %in% colnames(bact_mouse.sort)),]
-summary(colSums(bact_mouse.sort))
-
-OTU_rough = otu_table(bact_mouse.sort, taxa_are_rows = TRUE)
-TAX_rough = tax_table(bact.mouse.taxa)
-md.bact_mouse <- md.bact_mouse %>%
-  tibble::column_to_rownames("Name")
-samples_rough = sample_data(md.bact_mouse)
-exp2_bact_mouse_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
-
-bact_mouse.sort2 <- bact_mouse.sort[,c(which(colSums(bact_mouse.sort)>=1000))]
-md.bact_mouse.sort2 <- md.bact_mouse[which(row.names(md.bact_mouse) %in% colnames(bact_mouse.sort2)),]
-
-bact_mouse.nsampls <- apply(bact_mouse.sort, 1, gt0)
-bact_mouse.clean <- bact_mouse.sort2[which(bact_mouse.nsampls>1),]
+combined.nsampls <- apply(combined.sort2, 1, gt0)
+combined.clean <- combined.sort2[which(combined.nsampls>1),]
 
 #Setup to create the phyloseq object
-OTU = otu_table(bact_mouse.clean, taxa_are_rows = TRUE)
-TAX = tax_table(bact.mouse.taxa)
-samples = sample_data(md.bact_mouse.sort2)
+OTU = otu_table(combined.clean, taxa_are_rows = TRUE)
+TAX = tax_table(combined.taxa)
+samples = sample_data(md.combined.sort2)
 
 #Convert!
-exp2_bact_mouse <- phyloseq(OTU, TAX, samples)
-exp2_bact_mouse_prev <- filter_taxa(exp2_bact_mouse , function(x) sum(x >= 1) > (0.05*length(x)), TRUE)
+fig6_combined_cpz_lung <- phyloseq(OTU, TAX, samples)
 
 
-###Alpha Diversity###
 
-fr_bact_mouse <- prune_taxa(taxa_sums(exp2_bact_mouse_rough) > 0, exp2_bact_mouse_rough)
-richness_est_bact_mouse <- estimate_richness(fr_bact_mouse, measures = c("Simpson", "Shannon"))
+###Fig 6B: LUNG SHANNON ALPHA DIVERSITY###
 
-wilcox_alpha_bact_mouse <- t(sapply(richness_est_bact_mouse, function(x) unlist(kruskal.test(x~sample_data(fr_bact_mouse)$Condition)[c("estimate","p.value","statistic","conf.int")])))
-wilcox_alpha_bact_mouse
+fr_combined_cpz_lung <- prune_taxa(taxa_sums(fig6_lung_combined_rough) > 0, fig6_lung_combined_rough)
+richness_est_combined_cpz_lung <- estimate_richness(fr_combined_cpz_lung, measures = c("Shannon"))
 
-richness_est_bact_mouse <- richness_est_bact_mouse %>%
+wilcox_alpha_combined_cpz_lung <- t(sapply(richness_est_combined_cpz_lung, function(x) unlist(kruskal.test(x~sample_data(fr_combined_cpz_lung)$Sample.Name)[c("estimate","p.value","statistic","conf.int")])))
+wilcox_alpha_combined_cpz_lung
+
+richness_est_combined_cpz_lung <- richness_est_combined_cpz_lung %>%
   mutate(
-    Organ = md.bact_mouse$Organ,
-    Oxygen = md.bact_mouse$Oxygen,
-    FMT = md.bact_mouse$FMT,
-    Condition  = md.bact_mouse$Condition
+    Organ = md.combined.sort2$Organ,
+    Oxygen = md.combined.sort2$Oxygen,
+    FMT = md.combined.sort2$FMT,
+    Sample.Name  = md.combined.sort2$Sample.Name
   )
-#Save as .csv
-write.csv(richness_est_bact_mouse, "Fig 6A Gut 16S Alpha Diversity.csv")
 
-###Beta Diversity###
+#Save data table and open it in Graphpad to create plot
 
-exp2_bact_mouse_rel_prev <- transform_sample_counts(exp2_bact_mouse_prev, function(x) x / sum(x) )
 
-exp2_bact_mouse_otu_rel <- as.data.frame(t(exp2_bact_mouse_rel_prev@otu_table))
-exp2_bact_mouse_tax_rel <- as.data.frame(exp2_bact_mouse_rel_prev@tax_table)
-exp2_bact_mouse_meta_rel <- as.data.frame(exp2_bact_mouse_rel_prev@sam_data)
+###Fig 6B: LUNG BRAY-CURTIS BETA DIVERSITY PCOA###
 
-exp2_bact_mouse_rel_bray = vegdist(exp2_bact_mouse_otu_rel, method='bray')
-exp2_bact_mouse_rel_pcoa <- ape::pcoa(exp2_bact_mouse_rel_bray)
-exp2_bact_mouse_rel_pcoa$values
+fig6_combined_cpz_lung_rel <- transform_sample_counts(fig6_combined_cpz_lung, function(x) x / sum(x) )
 
-factor2_exp2 <- as.factor(exp2_bact_mouse_meta_rel$Condition)
-type2_exp2 <- as.numeric(factor2_exp2)
-pca_colors <- c("#007016","#007016","#94D57F","#94D57F")
+fig6_combined_cpz_lung_otu_rel <- as.data.frame(t(fig6_combined_cpz_lung_rel@otu_table))
+fig6_combined_cpz_lung_tax_rel <- as.data.frame(fig6_combined_cpz_lung_rel@tax_table)
+fig6_combined_cpz_lung_meta_rel <- as.data.frame(fig6_combined_cpz_lung_rel@sam_data)
 
+#Get Bray-Curtis dissimilarity matrix
+fig6_combined_cpz_lung_bray = vegdist(fig6_combined_cpz_lung_otu_rel, method='bray')
+
+fig6_combined_cpz_lung_pcoa <- ape::pcoa(fig6_combined_cpz_lung_bray)
+fig6_combined_cpz_lung_pcoa$values
+
+#This sets the color and factor order for the PCoA and PCA
+factor_fig6 <- as.factor(fig6_combined_cpz_lung_meta_rel$Sample.Name)
+factor_fig6 <- ordered(factor_fig6, levels = c("CPZ C.trop HO","SPF HO","CPZ C.trop NO", "SPF NO"))
+type_fig6 <- as.numeric(factor_fig6)
+pca_colors1 <- c("#007016","#B7B7B7")
+pca_colors2 <- c("#000000","#000000","#007016","#000000")
+ellipse_colors <- c("#007016","#000000","#007016","#000000")
+
+#Plot PCoA
 dpi=600
 tiff("Fig 6B PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
-plot(c(-0.75, 0.4), c(-0.6, 0.5), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
-points(exp2_bact_mouse_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors[type2_exp2], lwd = 1)
-ordiellipse(exp2_bact_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, kind = "se", conf = 0.95, col = pca_colors)
-ordispider(exp2_bact_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, label = TRUE)
+plot(c(-0.5, 0.5), c(-0.4, 0.5), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
+points(fig6_combined_cpz_lung_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors1[type_fig6], lwd = 1)
+points(fig6_combined_cpz_lung_pcoa$vectors[,1:2], pch = 1, cex = 1.3, col = pca_colors2[type_fig6], lwd = 1)
+ordiellipse(fig6_combined_cpz_lung_pcoa$vectors[,1:2], factor_fig6,kind = "se", conf = 0.95, col = ellipse_colors)
+ordispider(fig6_combined_cpz_lung_pcoa$vectors[,1:2], factor_fig6, label = TRUE)
 dev.off()
 
-permanova_pcoa_df <- data.frame(exp2_bact_mouse_meta_rel)
+#Significance test with PERMANOVA, pairwise PERMANOVA, and PERMDISP
+permanova_pcoa_df <- data.frame(fig6_combined_cpz_lung_meta_rel)
 set.seed(1312)
-permanova_bact_mouse_pcoa <- vegan::adonis2(exp2_bact_mouse_otu_rel ~ Condition, data = permanova_pcoa_df, method="bray", permutations = 10000)
+permanova_combined_cpz_lung_pcoa <- vegan::adonis2(fig6_combined_cpz_lung_otu_rel ~ Sample.Name, data = permanova_pcoa_df, method="bray", permutations = 10000)
 
-pairwise_permanova_bact_mouse_pcoa <- permanova_pairwise(exp2_bact_mouse_otu_rel, grp = permanova_pcoa_df$Condition, permutations = 10000, method = "bray", padj = "fdr")
+pairwise_permanova_combined_cpz_lung_pcoa <- permanova_pairwise(fig6_combined_cpz_lung_otu_rel, grp = permanova_pcoa_df$Sample.Name, permutations = 10000, method = "bray", padj = "fdr")
 
-bact_mouse_pcoa_dist <- vegdist(exp2_bact_mouse_otu_rel, method = "bray")
-disp_bact_mouse_pcoa <- betadisper(bact_mouse_pcoa_dist, permanova_pcoa_df$Condition)
+combined_cpz_lung_pcoa_dist <- vegdist(fig6_combined_cpz_lung_otu_rel, method = "bray")
+disp_combined_cpz_lung_pcoa <- betadisper(combined_cpz_lung_pcoa_dist, permanova_pcoa_df$Sample.Name)
 set.seed(1312)
-permdisp_bact_mouse_pcoa <- permutest(disp_bact_mouse_pcoa, permutations = 10000)
+permdisp_combined_cpz_lung_pcoa <- permutest(disp_combined_cpz_lung_pcoa, permutations = 10000)
 
-print(permanova_bact_mouse_pcoa)
-print(pairwise_permanova_bact_mouse_pcoa)
-print(permdisp_bact_mouse_pcoa)
+print(permanova_combined_cpz_lung_pcoa)
+print(pairwise_permanova_combined_cpz_lung_pcoa)
+print(permdisp_combined_cpz_lung_pcoa)
 
 
-#############Fig. 6C: Lung ITS#############
+###Fig 6B: LUNG BETA DIVERSITY PCA###
 
-fung_mouse <- read_csv("Mouse_Lung_ITS_ASVs.csv")
-fung.mouse.taxa <- read_csv("Mouse_Lung_ITS_Taxa.csv")
-roughmetadata_fung_mouse <- read_csv("Mouse_Lung_Metadata.csv")
+fig6_combined_cpz_lung_rel <- transform_sample_counts(fig6_combined_cpz_lung, function(x) x / sum(x) )
 
-###Data Prep###
+fig6_combined_cpz_lung_otu <- as.data.frame(t(fig6_combined_cpz_lung_rel@otu_table))
+fig6_combined_cpz_lung_tax <- as.data.frame(fig6_combined_cpz_lung_rel@tax_table)
+fig6_combined_cpz_lung_meta <- as.data.frame(fig6_combined_cpz_lung_rel@sam_data)
 
-#Load ASV table
-fung_mouse <- fung_mouse %>%
+#Hellinger transform and ordinate
+fig6_combined_cpz_lung_otu_hel <- decostand(fig6_combined_cpz_lung_otu, "hellinger")
+fig6_combined_cpz_lung_otu_pca <- rda(fig6_combined_cpz_lung_otu_hel)
+summary(fig6_combined_cpz_lung_otu_pca)$cont
+
+
+#Sets which taxa labels should be shown in the loading plot and which should be hidden, to prevent overcrowding
+priority_fig6_combined_cpz_lung <- colSums(fig6_combined_cpz_lung_otu_hel)
+labels_fig6_combined_cpz_lung <- orditorp(fig6_combined_cpz_lung_otu_pca, "sp", label = fig6_combined_cpz_lung_tax$Genus, priority=priority_fig6_combined_cpz_lung)
+
+#PCA Loading Plot
+dpi = 600
+tiff("Fig 6B PCA Loading Plot.tif", width=5*dpi, height=5*dpi, res=dpi)
+biplot(fig6_combined_cpz_lung_otu_pca, display = c("species"), type = c("points"), col = "grey",font = 2, font.lab = 2, xlab="PC1 (16.84% Explained)", ylab="PC2 (12.87% Explained)", ylim = c(-0.4,0.5),xlim = c(-0.5,0.6))
+orditorp(fig6_combined_cpz_lung_otu_pca, "sp", label = fig6_combined_cpz_lung_tax$Genus, priority=priority_fig6_combined_cpz_lung, select = (labels_fig6_combined_cpz_lung == TRUE), cex = 0.7)
+dev.off()
+
+#PCA sample plot
+#Color and factor mappings are the same as the PCoA
+tiff("Fig 6B PCA.tif", width=5*dpi, height=5*dpi, res=dpi)
+plot(c(-0.9,0.8),c(-0.9,0.8), font = 2, font.lab = 2, xlab="PC1 (16.84% Explained)", ylab="PC2 (12.87% Explained)", type="n")
+points(fig6_combined_cpz_lung_otu_pca, pch = 21, cex = 1.3, bg = pca_colors1[factor_fig6], lwd = 1)
+points(fig6_combined_cpz_lung_otu_pca, pch = 1, cex = 1.3, col = pca_colors2[factor_fig6], lwd = 1)
+ordiellipse(fig6_combined_cpz_lung_otu_pca, factor_fig6, col = ellipse_colors)
+ordispider(fig6_combined_cpz_lung_otu_pca, factor_fig6, label = TRUE)
+dev.off()
+
+#PERMANOVA, pairwise PERMANOVA, and PERMDISP based on Euclidean distances
+permanova_cpz_lung_df <- data.frame(fig6_combined_cpz_lung_meta)
+set.seed(1312)
+permanova_cpz_lung <- vegan::adonis2(fig6_combined_cpz_lung_otu_hel ~ Sample.Name, data = permanova_cpz_lung_df, method="euclidean", permutations = 10000)
+pairwise_permanova_cpz_lung <- permanova_pairwise(fig6_combined_cpz_lung_otu_hel, grp = permanova_cpz_lung_df$Sample.Name, permutations = 10000, method = "euclidean", padj = "fdr")
+
+cpz_lung_hel_dist <- vegdist(fig6_combined_cpz_lung_otu_hel, method = "euclidean")
+disp_cpz_lung <- betadisper(cpz_lung_hel_dist, permanova_cpz_lung_df$Sample.Name)
+set.seed(1312)
+permdisp_cpz_lung <- permutest(disp_cpz_lung, permutations = 10000)
+
+print(permanova_cpz_lung)
+print(pairwise_permanova_cpz_lung)
+print(permdisp_cpz_lung)
+
+
+###Fig 6C: GUT MULTIKINGDOM###
+
+###DATA PREP###
+
+#Load data
+fung_cpz_gut <- read_csv("Fluco_CPZ_Gut_ITS_ASV.csv")
+fung.cpz.gut.taxa <- read_csv("Fluco_CPZ_Gut_ITS_Taxa.csv")
+
+fung_cpz_gut <- fung_cpz_gut %>%
   tibble::column_to_rownames("Name")
 
-#Load taxonomy table
-#Convert sample names to row names and convert to a matrix to make converting to phyloseq easier
-fung.mouse.taxa <- fung.mouse.taxa %>%
+fung.cpz.gut.taxa <- fung.cpz.gut.taxa %>%
   tibble::column_to_rownames("Name")
-fung.mouse.taxa <- as.matrix(fung.mouse.taxa)
 
-#Load metadata
-fung.mouse.sort <- fung_mouse[,order(colnames(fung_mouse))]
-md.fung.mouse <- roughmetadata_fung_mouse[which(unlist(roughmetadata_fung_mouse$Name) %in% colnames(fung.mouse.sort)),]
-summary(colSums(fung.mouse.sort))
+bact_cpz_gut <- read_csv("Fluco_CPZ_Gut_16S_ASV.csv")
+bact.cpz.gut.taxa <- read_csv("Fluco_CPZ_16S_Taxa.csv")
 
-
-OTU_rough = otu_table(fung.mouse.sort, taxa_are_rows = TRUE)
-
-TAX_rough = tax_table(fung.mouse.taxa)
-
-md.fung.mouse <- md.fung.mouse %>%
+bact_cpz_gut <- bact_cpz_gut %>%
   tibble::column_to_rownames("Name")
-samples_rough = sample_data(md.fung.mouse)
 
-exp2_fung_mouse_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
+bact.cpz.gut.taxa <- bact.cpz.gut.taxa %>%
+  tibble::column_to_rownames("Name")
 
-fung.mouse.sort2 <- fung.mouse.sort[,c(which(colSums(fung.mouse.sort)>=0))]
-md.fung.mouse.sort2 <- md.fung.mouse[which(row.names(md.fung.mouse) %in% colnames(fung.mouse.sort2)),]
+roughmetadata_combined_cpz_gut <- read_csv("CPZ_Gut_Metadata.csv")
 
-fung_mouse.nsampls <- apply(fung.mouse.sort, 1, gt0)
-fung_mouse.clean <- fung.mouse.sort2[which(fung_mouse.nsampls>1),]
-fung_mouse.clean.colsum <- fung_mouse.clean[,colSums(fung_mouse.clean)>0]
+#Renaming the ITS ASVs so they don't overlap with 16S ASV names
+row.names(fung_cpz_gut) <- paste("ASV",5386:5434,sep="")
+bact_cpz_gut <-as.data.frame(t(bact_cpz_gut))
 
+combined <- rbind.fill(bact_cpz_gut,fung_cpz_gut)
+rownames(combined) <- c(row.names(bact_cpz_gut),row.names(fung_cpz_gut))
+combined[is.na(combined)] <- 0
+
+#Combine 16S and ITS taxonomy tables, rename the ASVs in the taxonomy table to match the new ITS names
+row.names(fung.cpz.gut.taxa) <- paste("ASV",5386:5434,sep="")
+combined.taxa <- rbind.fill(as.data.frame(bact.cpz.gut.taxa),as.data.frame(fung.cpz.gut.taxa))
+rownames(combined.taxa) <- c(row.names(bact.cpz.gut.taxa),row.names(fung.cpz.gut.taxa))
+
+combined.taxa <- as.matrix(combined.taxa)
+
+combined.sort <- combined[,order(colnames(combined))]
+md.combined <- roughmetadata_combined_cpz_gut[which(unlist(roughmetadata_combined_cpz_gut$Name) %in% colnames(combined.sort)),]
+
+#Shows distribution of read depth
+summary(colSums(combined.sort))
+
+md.combined <- md.combined %>%
+  tibble::column_to_rownames("Name")
+
+#Filter out samples with read depth <50, 0 removed
+combined.sort2 <- combined.sort[,c(which(colSums(combined.sort)>=50))]
+combined.taxa2 <- combined.taxa[row.names(combined.taxa) %in% row.names(combined.sort2),]
+md.combined.sort2 <- md.combined[which(row.names(md.combined) %in% colnames(combined.sort2)),]
+
+OTU_rough = otu_table(combined.sort2, taxa_are_rows = TRUE)
+TAX_rough = tax_table(combined.taxa)
+samples_rough = sample_data(md.combined.sort2)
+
+#Convert ITS data to phyloseq object 
+fig6_gut_combined_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
+
+
+#This is the same
+gt0 <- function(vec){
+  v <- as.numeric(vec)
+  s <- sum(v>0)
+  return(s)
+}
+
+combined.nsampls <- apply(combined.sort2, 1, gt0)
+combined.clean <- combined.sort2[which(combined.nsampls>1),]
 
 #Setup to create the phyloseq object
-OTU = otu_table(fung_mouse.clean.colsum, taxa_are_rows = TRUE)
-TAX = tax_table(fung.mouse.taxa)
-samples = sample_data(md.fung.mouse.sort2)
+OTU = otu_table(combined.clean, taxa_are_rows = TRUE)
+TAX = tax_table(combined.taxa)
+samples = sample_data(md.combined.sort2)
 
 #Convert!
-exp2_fung_mouse <- phyloseq(OTU, TAX, samples)
-exp2_fung_mouse_prev <- filter_taxa(exp2_fung_mouse , function(x) sum(x >= 1) > (0.05*length(x)), TRUE)
+fig6_combined_cpz_gut <- phyloseq(OTU, TAX, samples)
 
 
-###Alpha Diversity###
 
-fr_fung_mouse <- prune_taxa(taxa_sums(exp2_fung_mouse_rough) > 0, exp2_fung_mouse_rough)
-richness_est_fung_mouse <- estimate_richness(fr_fung_mouse, measures = c("Simpson", "Shannon"))
+###Fig 6C: GUT SHANNON ALPHA DIVERSITY###
 
-richness_est_fung_mouse <- richness_est_fung_mouse %>%
+fr_combined_cpz_gut <- prune_taxa(taxa_sums(fig6_gut_combined_rough) > 0, fig6_gut_combined_rough)
+richness_est_combined_cpz_gut <- estimate_richness(fr_combined_cpz_gut, measures = c("Shannon"))
+
+wilcox_alpha_combined_cpz_gut <- t(sapply(richness_est_combined_cpz_gut, function(x) unlist(kruskal.test(x~sample_data(fr_combined_cpz_gut)$Sample.Name)[c("estimate","p.value","statistic","conf.int")])))
+wilcox_alpha_combined_cpz_gut
+
+richness_est_combined_cpz_gut <- richness_est_combined_cpz_gut %>%
   mutate(
-    Organ = md.fung.mouse$Organ,
-    Oxygen = md.fung.mouse$Oxygen,
-    FMT = md.fung.mouse$FMT,
-    Condition  = md.fung.mouse$Condition
+    Organ = md.combined.sort2$Organ,
+    Oxygen = md.combined.sort2$Oxygen,
+    FMT = md.combined.sort2$FMT,
+    Sample.Name  = md.combined.sort2$Sample.Name
   )
-#Save
 
-###Beta Diversity###
+#Save data table and open it in Graphpad to create plot
 
-exp2_fung_mouse_rel_prev <- transform_sample_counts(exp2_fung_mouse_prev, function(x) x / sum(x) )
 
-exp2_fung_mouse_otu_rel <- as.data.frame(t(exp2_fung_mouse_rel_prev@otu_table))
-exp2_fung_mouse_tax_rel <- as.data.frame(exp2_fung_mouse_rel_prev@tax_table)
-exp2_fung_mouse_meta_rel <- as.data.frame(exp2_fung_mouse_rel_prev@sam_data)
+###Fig 6C: GUT BRAY-CURTIS BETA DIVERSITY PCOA###
 
-exp2_fung_mouse_rel_bray = vegdist(exp2_fung_mouse_otu_rel, method='bray')
-exp2_fung_mouse_rel_pcoa <- ape::pcoa(exp2_fung_mouse_rel_bray)
-exp2_fung_mouse_rel_pcoa$values
+fig6_combined_cpz_gut_rel <- transform_sample_counts(fig6_combined_cpz_gut, function(x) x / sum(x) )
 
-factor2_exp2 <- as.factor(exp2_fung_mouse_meta_rel$Condition)
-type2_exp2 <- as.numeric(factor2_exp2)
-pca_colors <- c("#007016","#007016","#94D57F","#94D57F")
+fig6_combined_cpz_gut_otu_rel <- as.data.frame(t(fig6_combined_cpz_gut_rel@otu_table))
+fig6_combined_cpz_gut_tax_rel <- as.data.frame(fig6_combined_cpz_gut_rel@tax_table)
+fig6_combined_cpz_gut_meta_rel <- as.data.frame(fig6_combined_cpz_gut_rel@sam_data)
 
+#Get Bray-Curtis dissimilarity matrix
+fig6_combined_cpz_gut_bray = vegdist(fig6_combined_cpz_gut_otu_rel, method='bray')
+
+fig6_combined_cpz_gut_pcoa <- ape::pcoa(fig6_combined_cpz_gut_bray)
+fig6_combined_cpz_gut_pcoa$values
+
+#This sets the color and factor order for the PCoA and PCA
+factor_fig6 <- as.factor(fig6_combined_cpz_gut_meta_rel$Sample.Name)
+factor_fig6 <- ordered(factor_fig6, levels = c("CPZ C.trop HO","SPF HO","CPZ C.trop NO", "SPF NO"))
+type_fig6 <- as.numeric(factor_fig6)
+pca_colors1 <- c("#007016","#B7B7B7")
+pca_colors2 <- c("#000000","#000000","#007016","#000000")
+ellipse_colors <- c("#007016","#000000","#007016","#000000")
+
+#Plot PCoA
 dpi=600
 tiff("Fig 6C PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
-plot(c(-0.5, 0.7), c(-0.6, 0.6), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
-points(exp2_fung_mouse_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors[type2_exp2], lwd = 1)
-ordiellipse(exp2_fung_mouse_rel_pcoa$vectors[,1:2], kind = "se", conf = 0.95,factor2_exp2, col = pca_colors)
-ordispider(exp2_fung_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, label = TRUE)
+plot(c(-0.8, 0.4), c(-0.6, 0.3), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
+points(fig6_combined_cpz_gut_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors1[type_fig6], lwd = 1)
+points(fig6_combined_cpz_gut_pcoa$vectors[,1:2], pch = 1, cex = 1.3, col = pca_colors2[type_fig6], lwd = 1)
+ordiellipse(fig6_combined_cpz_gut_pcoa$vectors[,1:2], factor_fig6,kind = "se", conf = 0.95, col = ellipse_colors)
+ordispider(fig6_combined_cpz_gut_pcoa$vectors[,1:2], factor_fig6, label = TRUE)
 dev.off()
 
-permanova_pcoa_df <- data.frame(exp2_fung_mouse_meta_rel)
+#Significance test with PERMANOVA, pairwise PERMANOVA, and PERMDISP
+permanova_pcoa_df <- data.frame(fig6_combined_cpz_gut_meta_rel)
 set.seed(1312)
-permanova_fung_mouse_pcoa <- vegan::adonis2(exp2_fung_mouse_otu_rel ~ Condition, data = permanova_pcoa_df, method="bray", permutations = 10000)
+permanova_combined_cpz_gut_pcoa <- vegan::adonis2(fig6_combined_cpz_gut_otu_rel ~ Sample.Name, data = permanova_pcoa_df, method="bray", permutations = 10000)
 
-pairwise_permanova_fung_mouse_pcoa <- permanova_pairwise(exp2_fung_mouse_otu_rel, grp = permanova_pcoa_df$Condition, permutations = 10000, method = "bray", padj = "fdr")
+pairwise_permanova_combined_cpz_gut_pcoa <- permanova_pairwise(fig6_combined_cpz_gut_otu_rel, grp = permanova_pcoa_df$Sample.Name, permutations = 10000, method = "bray", padj = "fdr")
 
-fung_mouse_pcoa_dist <- vegdist(exp2_fung_mouse_otu_rel, method = "bray")
-disp_fung_mouse_pcoa <- betadisper(fung_mouse_pcoa_dist, permanova_pcoa_df$Condition)
+combined_cpz_gut_pcoa_dist <- vegdist(fig6_combined_cpz_gut_otu_rel, method = "bray")
+disp_combined_cpz_gut_pcoa <- betadisper(combined_cpz_gut_pcoa_dist, permanova_pcoa_df$Sample.Name)
 set.seed(1312)
-permdisp_fung_mouse_pcoa <- permutest(disp_fung_mouse_pcoa, permutations = 10000)
+permdisp_combined_cpz_gut_pcoa <- permutest(disp_combined_cpz_gut_pcoa, permutations = 10000)
 
-print(permanova_fung_mouse_pcoa)
-print(pairwise_permanova_fung_mouse_pcoa)
-print(permdisp_fung_mouse_pcoa)
-
-
-#############Fig. 6D: Lung 16S#############
-
-###Data Prep###
-bact_mouse <- read_csv("Mouse_Lung_16s_ASVs.csv")
-bact.mouse.taxa <- read_csv("Mouse_Lung_16s_Taxa.csv")
-roughmetadata_bact_mouse <- read_csv("Mouse_Lung_Metadata.csv")
-
-#Load ASV table
-bact_mouse <- bact_mouse %>%
-  tibble::column_to_rownames("Name")
-
-#Load taxonomy table
-#Convert sample names to row names and convert to a matrix to make converting to phyloseq easier
-bact.mouse.taxa <- bact.mouse.taxa %>%
-  tibble::column_to_rownames("Name")
-bact.mouse.taxa <- as.matrix(bact.mouse.taxa)
-
-#Load metadata
-bact_mouse.sort <- bact_mouse[,order(colnames(bact_mouse))]
-md.bact_mouse <- roughmetadata_bact_mouse[which(unlist(roughmetadata_bact_mouse$Name) %in% colnames(bact_mouse.sort)),]
-summary(colSums(bact_mouse.sort))
-
-OTU_rough = otu_table(bact_mouse.sort, taxa_are_rows = TRUE)
-TAX_rough = tax_table(bact.mouse.taxa)
-md.bact_mouse <- md.bact_mouse %>%
-  tibble::column_to_rownames("Name")
-samples_rough = sample_data(md.bact_mouse)
-exp2_bact_mouse_rough <- phyloseq(OTU_rough, TAX_rough, samples_rough)
-
-bact_mouse.sort2 <- bact_mouse.sort[,c(which(colSums(bact_mouse.sort)>=0))]
-md.bact_mouse.sort2 <- md.bact_mouse[which(row.names(md.bact_mouse) %in% colnames(bact_mouse.sort2)),]
-
-bact_mouse.nsampls <- apply(bact_mouse.sort2,1, gt0)
-bact_mouse.clean <- bact_mouse.sort2[which(bact_mouse.nsampls>1),]
-
-#Setup to create the phyloseq object
-OTU = otu_table(bact_mouse.clean, taxa_are_rows = TRUE)
-TAX = tax_table(bact.mouse.taxa)
-samples = sample_data(md.bact_mouse.sort2)
-
-#Convert!
-exp2_bact_mouse <- phyloseq(OTU, TAX, samples)
-exp2_bact_mouse_prev <- filter_taxa(exp2_bact_mouse , function(x) sum(x >= 1) > (0.05*length(x)), TRUE)
+print(permanova_combined_cpz_gut_pcoa)
+print(pairwise_permanova_combined_cpz_gut_pcoa)
+print(permdisp_combined_cpz_gut_pcoa)
 
 
-###Alpha Diversity###
+###Fig 6C: GUT BETA DIVERSITY PCA###
 
-fr_bact_mouse <- prune_taxa(taxa_sums(exp2_bact_mouse_rough) > 0, exp2_bact_mouse_rough)
-richness_est_bact_mouse <- estimate_richness(fr_bact_mouse, measures = c("Simpson", "Shannon"))
+fig6_combined_cpz_gut_rel <- transform_sample_counts(fig6_combined_cpz_gut, function(x) x / sum(x) )
 
-richness_est_bact_mouse <- richness_est_bact_mouse %>%
-  mutate(
-    Organ = md.bact_mouse$Organ,
-    Oxygen = md.bact_mouse$Oxygen,
-    FMT = md.bact_mouse$FMT,
-    Condition  = md.bact_mouse$Condition
-  )
-#Save
+fig6_combined_cpz_gut_otu <- as.data.frame(t(fig6_combined_cpz_gut_rel@otu_table))
+fig6_combined_cpz_gut_tax <- as.data.frame(fig6_combined_cpz_gut_rel@tax_table)
+fig6_combined_cpz_gut_meta <- as.data.frame(fig6_combined_cpz_gut_rel@sam_data)
 
-###Beta Diversity###
+#Hellinger transform and ordinate
+fig6_combined_cpz_gut_otu_hel <- decostand(fig6_combined_cpz_gut_otu, "hellinger")
+fig6_combined_cpz_gut_otu_pca <- rda(fig6_combined_cpz_gut_otu_hel)
+summary(fig6_combined_cpz_gut_otu_pca)$cont
 
-exp2_bact_mouse_rel_prev <- transform_sample_counts(exp2_bact_mouse_prev, function(x) x / sum(x) )
 
-exp2_bact_mouse_otu_rel <- as.data.frame(t(exp2_bact_mouse_rel_prev@otu_table))
-exp2_bact_mouse_tax_rel <- as.data.frame(exp2_bact_mouse_rel_prev@tax_table)
-exp2_bact_mouse_meta_rel <- as.data.frame(exp2_bact_mouse_rel_prev@sam_data)
+#Sets which taxa labels should be shown in the loading plot and which should be hidden, to prevent overcrowding
+priority_fig6_combined_cpz_gut <- colSums(fig6_combined_cpz_gut_otu_hel)
+labels_fig6_combined_cpz_gut <- orditorp(fig6_combined_cpz_gut_otu_pca, "sp", label = fig6_combined_cpz_gut_tax$Genus, priority=priority_fig6_combined_cpz_gut)
 
-exp2_bact_mouse_rel_bray = vegdist(exp2_bact_mouse_otu_rel, method='bray')
-exp2_bact_mouse_rel_pcoa <- ape::pcoa(exp2_bact_mouse_rel_bray)
-exp2_bact_mouse_rel_pcoa$values
-
-factor2_exp2 <- as.factor(exp2_bact_mouse_meta_rel$Condition)
-type2_exp2 <- as.numeric(factor2_exp2)
-pca_colors <- c("#007016","#007016","#94D57F","#94D57F")
-
-dpi=600
-tiff("Mouse lung 16s PCoA.tif", width=5*dpi, height=5*dpi, res=dpi)
-plot(c(-0.5, 0.5), c(-0.7, 0.3), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
-points(exp2_bact_mouse_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = pca_colors[type2_exp2], lwd = 1)
-ordiellipse(exp2_bact_mouse_rel_pcoa$vectors[,1:2], factor2_exp2,kind = "se", conf = 0.95, col = pca_colors)
-ordispider(exp2_bact_mouse_rel_pcoa$vectors[,1:2], factor2_exp2, label = TRUE)
+#PCA Loading Plot
+dpi = 600
+tiff("Fig 6C PCA Loading Plot.tif", width=5*dpi, height=5*dpi, res=dpi)
+biplot(fig6_combined_cpz_gut_otu_pca, display = c("species"), type = c("points"), col = "grey",font = 2, font.lab = 2, xlab="PC1 (53.78% Explained)", ylab="PC2 (22.75% Explained)", ylim = c(-0.4,0.8),xlim = c(-0.9,0.8))
+orditorp(fig6_combined_cpz_gut_otu_pca, "sp", label = fig6_combined_cpz_gut_tax$Genus, priority=priority_fig6_combined_cpz_gut, select = (labels_fig6_combined_cpz_gut == TRUE), cex = 0.7)
 dev.off()
 
-permanova_pcoa_df <- data.frame(exp2_bact_mouse_meta_rel)
+#PCA sample plot
+#Color and factor mappings are the same as the PCoA
+tiff("Fig 6C PCA.tif", width=5*dpi, height=5*dpi, res=dpi)
+plot(c(-0.4,0.9),c(-0.6,0.7), font = 2, font.lab = 2, xlab="PC1 (53.78% Explained)", ylab="PC2 (22.75% Explained)", type="n")
+points(fig6_combined_cpz_gut_otu_pca, pch = 21, cex = 1.3, bg = pca_colors1[factor_fig6], lwd = 1)
+points(fig6_combined_cpz_gut_otu_pca, pch = 1, cex = 1.3, col = pca_colors2[factor_fig6], lwd = 1)
+ordiellipse(fig6_combined_cpz_gut_otu_pca, factor_fig6, col = ellipse_colors)
+ordispider(fig6_combined_cpz_gut_otu_pca, factor_fig6, label = TRUE)
+dev.off()
+
+#PERMANOVA, pairwise PERMANOVA, and PERMDISP based on Euclidean distances
+permanova_cpz_gut_df <- data.frame(fig6_combined_cpz_gut_meta)
 set.seed(1312)
-permanova_bact_mouse_pcoa <- vegan::adonis2(exp2_bact_mouse_otu_rel ~ Condition, data = permanova_pcoa_df, method="bray", permutations = 10000)
+permanova_cpz_gut <- vegan::adonis2(fig6_combined_cpz_gut_otu_hel ~ Sample.Name, data = permanova_cpz_gut_df, method="euclidean", permutations = 10000)
+pairwise_permanova_cpz_gut <- permanova_pairwise(fig6_combined_cpz_gut_otu_hel, grp = permanova_cpz_gut_df$Sample.Name, permutations = 10000, method = "euclidean", padj = "fdr")
 
-pairwise_permanova_bact_mouse_pcoa <- permanova_pairwise(exp2_bact_mouse_otu_rel, grp = permanova_pcoa_df$Condition, permutations = 10000, method = "bray", padj = "fdr")
-
-bact_mouse_pcoa_dist <- vegdist(exp2_bact_mouse_otu_rel, method = "bray")
-disp_bact_mouse_pcoa <- betadisper(bact_mouse_pcoa_dist, permanova_pcoa_df$Condition)
+cpz_gut_hel_dist <- vegdist(fig6_combined_cpz_gut_otu_hel, method = "euclidean")
+disp_cpz_gut <- betadisper(cpz_gut_hel_dist, permanova_cpz_gut_df$Sample.Name)
 set.seed(1312)
-permdisp_bact_mouse_pcoa <- permutest(disp_bact_mouse_pcoa, permutations = 10000)
+permdisp_cpz_gut <- permutest(disp_cpz_gut, permutations = 10000)
 
+print(permanova_cpz_gut)
+print(pairwise_permanova_cpz_gut)
+print(permdisp_cpz_gut)
 print(permanova_bact_mouse_pcoa)
 print(pairwise_permanova_bact_mouse_pcoa)
 print(permdisp_bact_mouse_pcoa)
