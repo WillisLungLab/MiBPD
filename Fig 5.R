@@ -27,7 +27,7 @@ bact_fluco_lung <- bact_fluco_lung %>%
 bact.fluco.lung.taxa <- bact.fluco.lung.taxa %>%
   tibble::column_to_rownames("Name")
 
-roughmetadata_combined_fluco_lung <- read_csv("Fluco_roughmetadata_combined_fluco_lungdata.csv")
+roughmetadata_combined_fluco_lung <- read_csv("Fluco_Lung_Metadata.csv")
 
 #Renaming the ITS ASVs so they don't overlap with 16S ASV names
 row.names(fung_fluco_lung) <- paste("ASV",5386:5658,sep="")
