@@ -170,7 +170,7 @@ nodes_fungi_bpd <- gorder(fungi.bpd.subnet)
 edges_fungi_bpd <- gsize(fungi.bpd.subnet)
 
 
-###Get Subnetwork of all Fungi and all adjacent nodes for PPRD network###
+###Get Subnetwork of all Fungi and all adjacent nodes for NoBPD network###
 
 fungi_pprd_subnetwork <- extract_surnodes(se.exp2.gen.pprd, c(51:69))
 fungi.pprd.graphable <- as.matrix(fungi_pprd_subnetwork)
@@ -228,11 +228,11 @@ ggplot(nodes_long_all,aes(x= factor(BPD, col_order), y = nodes))+
 ggsave("Fig E1E.tiff", width = 5, height = 5, device='tiff', dpi=600)
 
 
-############################FIGURE S2G: 16S PPRD SPIEC-EASI FULL NETWORK WITH TAXA LABELS############################
+############################FIGURE S2G: 16S NOBPD SPIEC-EASI FULL NETWORK WITH TAXA LABELS############################
 
 ###Use SPIEC-EASI Network from Fig. 1G###
 
-#PPRD only network plot with taxa labels
+#NoBPD only network plot with taxa labels
 prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_bact_gen_prev_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
 prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 3)
 #Save
