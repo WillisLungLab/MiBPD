@@ -250,7 +250,7 @@ ggplot(nodes_fungi_long,aes(x= BPD_Sex, y = Nodes))+
 #Save
 
 
-############################FIGURE S6E: 16S PPRD-SAAB SPIEC-EASI NETWORKS WITH LABELS############################
+############################FIGURE S6E: 16S NOBPD-SAAB SPIEC-EASI NETWORKS WITH LABELS############################
 
 ###No_BPD_AFAB###
 prev_gen_spiec_plot_No_BPD_afab_legend <- plot_network(spiec.graph.gen.pprd.afab, exp2_combined_gen_prev_noNA, type='taxa',label=NULL, color="Kingdom", point_size = 8, line_weight = 1)
