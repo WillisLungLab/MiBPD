@@ -1,541 +1,272 @@
+library(tidyverse)
+library(vegan)
+library(phyloseq)
+library(DESeq2)
+library(data.table)
+library(RColorBrewer)
+library(plyr)
 library(mia)
 library(miaViz)
-library(DirichletMultinomial)
-library(reshape2)
 
-############################FIGURE E7A: ALL ITS DMM LAPLACE PLOT############################
-exp2_fung_tse <- makeTreeSEFromPhyloseq(exp2_fung_prev)
 
+############################FIGURE S8A: 16S DMM PCoA############################
+
+exp2_bact_tse <- makeTreeSEFromPhyloseq(exp2_bact_prev)
+
+#Run DMM model with k of 1-7, then get DMM with best k (determined by lowest Laplace value)
 set.seed(1312)
-tse_dmn <- mia::runDMN(exp2_fung_tse, name = "DMN", k = 1:7)
-getDMN(tse_dmn)
-
-###Since 2 and 5 clusters had similar values, we ran both###
-###Fitting model for 5 clusters###
-plotDMNFit(tse_dmn, type = "laplace")
+tse_dmn <- mia::runDMN(exp2_bact_tse, name = "DMN", k = 1:7)
 best_dmn <- getBestDMNFit(tse_dmn, type = "laplace")
 
-###Fitting model for 2 clusters###
-tse_dmn2 <- mia::runDMN(exp2_fung_tse, name = "DMN", k = 2)
-getDMN(tse_dmn2)
-best_dmn2 <- getBestDMNFit(tse_dmn2, type = "laplace")
+prob <- DirichletMultinomial::mixture(getBestDMNFit(tse_dmn))
+#Add column names
+colnames(prob) <- c("Cluster 1", "Cluster 2","Cluster 3","Cluster 4")
 
-############################FIGURE E7B: ALL ITS DMM 2 CLUSTERS VARIABLE IMPORTANCE############################
+#Returns column with the highest value for each sample, highest value means membership in that cluster
+vec <- colnames(prob)[max.col(prob,ties.method = "first")]
 
-###Identifies taxa present in each cluster###
-for (k in seq(ncol(fitted(best_dmn2)))) {
-  d2 <- melt(fitted(best_dmn2))
-  colnames(d2) <- c("OTU", "cluster", "value")
-  print(d2)
-}
+#This is the beta diversity plot
+exp2_bact_rel_prev <- transform_sample_counts(exp2_bact_prev, function(x) x / sum(x) )
 
-###Gets the most important variables (>0.80) and arranges them in descending order###
-exp2_fung_tax_rel_genonly2 <- data.frame(new_col = c(exp2_fung_tax_rel$Genus, exp2_fung_tax_rel$Genus))
-d2 <- d2 %>%
-  mutate(Genus = exp2_fung_tax_rel_genonly) %>%
-  arrange(value) %>%
-  mutate(OTU = factor(OTU, levels = unique(OTU))) %>%
-  # Only show the most important drivers
-  filter(abs(value) > quantile(abs(value), 0.80))
-print(d2)
+exp2_bact_otu_rel <- as.data.frame(t(exp2_bact_rel_prev@otu_table))
+exp2_bact_tax_rel <- as.data.frame(exp2_bact_rel_prev@tax_table)
+exp2_bact_meta_rel <- as.data.frame(exp2_bact_rel_prev@sam_data)
+exp2_bact_meta_rel <- cbind(exp2_bact_meta_rel,
+                                dmm_component = vec)
 
-###Plots top variables for Cluster 1###
-d2_1 <- subset(d2, d2$cluster == 1)
-d2_1 <- d2_1 %>% top_n(10, value)
-p2_1 <- ggplot(d2_1, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 1")) +
-  theme_bw()
-print(p2_1)
-#Save
+###Ordinate using Bray-Curtis distance###
+exp2_bact_rel_bray = vegdist(exp2_bact_otu_rel, method='bray')
+exp2_bact_rel_pcoa <- ape::pcoa(exp2_bact_rel_bray)
+bray_pcoa_df <- exp2_bact_rel_pcoa$vectors[,1:2]
 
-###Plots top variables for Cluster 2###
-d2_2 <- subset(d2, d2$cluster == 2)
-d2_2 <- d2_2 %>% top_n(10, value)
-p2_2 <- ggplot(d2_2, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 2")) +
-  theme_bw()
-print(p2_2)
-#Save
+bray_dmm_pcoa_df <- cbind(bray_pcoa_df,
+                          dmm_component = vec)
+
+factor_exp2 <- as.factor(bray_dmm_pcoa_df[,3])
+type_exp2 <- as.numeric(factor_exp2)
+dmm_colors_all <- c("#8FD96C","#64BD4B","#228019","#096620")
+
+###Plot###
+dpi=600
+tiff("Fig S8A.tif", width=5*dpi, height=5*dpi, res=dpi)
+plot(c(-0.6, 0.4), c(-0.4, 0.5), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
+points(exp2_bact_rel_pcoa$vectors[,1:2], pch = 21, cex = 1.3, bg = dmm_colors_all[type_exp2], lwd = 1)
+ordiellipse(exp2_bact_rel_pcoa$vectors[,1:2], factor_exp2)
+ordispider(exp2_bact_rel_pcoa$vectors[,1:2], factor_exp2, label = TRUE)
+dev.off()
 
 
-############################FIGURE E7C: ALL ITS DMM 2 CLUSTERS CCA############################
+############################FIGURE S8B: 16S DMM ALPHA DIVERSITY############################
 
-###Create a dataframe of all metadata factors to plot###
-exp2_fung_meta_rel2 <- as.data.frame(exp2_fung_meta_rel2)
-cols <- c("BPD","BPD_Severity","Died","Sex","BPD_Sex","Feeding","Multiples","IUGR","UTI","Pre.E","CS","NEC...2","Pneumonia","Intubation","C..Sepsis","C..Sepsis.1","Dominance","dmm_component")
-exp2_fung_meta_rel2[cols] <- lapply(exp2_fung_meta_rel2[cols], factor)
+###Get Chao1 and Shannon diversity###
+vec_df <- as.data.frame(vec)
+fr_bact <- prune_taxa(taxa_sums(exp2_bact_rough) > 0, exp2_bact_rough)
+richness_est_bact <- estimate_richness(fr_bact, measures = c("Simpson", "Shannon"))
 
-#Reorder factors as needed so arrows show the main variables of interest
-sapply(exp2_fung_meta_rel2, class)
-exp2_fung_meta_rel2 <- as.data.frame(exp2_fung_meta_rel2[,c(1,3,4,6,7,8,24,25,26,28)])
-exp2_fung_meta_rel2$BPD<- factor(exp2_fung_meta_rel2$BPD, levels=c('PPRD', 'BPD'))
-exp2_fung_meta_rel2$Died<- factor(exp2_fung_meta_rel2$Died, levels=c('Survived', 'Died'))
-exp2_fung_meta_rel2$dmm_component<- factor(exp2_fung_meta_rel2$dmm_component, levels=c('comp1','comp2'))
-cca_result2 <- cca(exp2_fung_otu_rel, exp2_fung_meta_rel2)
+wilcox_alpha_bact <- t(sapply(richness_est_bact, function(x) unlist(kruskal.test(x~vec_df$vec)[c("estimate","p.value","statistic","conf.int")])))
+wilcox_alpha_bact
 
-#summary of the data
-summary(cca_result2)
-plot(cca_result2)
-
-#extract metadata for arrows
-veg_12 = as.data.frame(cca_result2$CCA$biplot)
-row.names(veg_12) <- c("BPD","Died","AMAB","GA","BW","CRIB.II","Low_Evenness","Fungi_Abundance","CRP","comp2")
-veg_12["env"] = row.names(veg_12)
-
-#extract samples for dark green points
-veg_22 = as.data.frame(cca_result2$CCA$u)
-veg_22["samples"] = row.names(veg_22)
-
-#extract taxa for light green points
-veg_32 = as.data.frame(cca_result2$CCA$v)
-veg_32["genus"] = row.names(veg_32)
-
-#Plots points only
-plot2 = ggplot() +
-  geom_point(data = veg_32, aes(x = CCA1, y = CCA2), color = "#AFEE91", size = 1.0) +
-  geom_point(data = veg_22, aes(x = CCA1, y = CCA2), color = "#0B8700", size = 2.0) +
-  geom_point(data = veg_12, aes(x = CCA1, y = CCA2), color = "black")
+###Add cluster assignments to dataframe with alpha diversity values###
+row.names(vec_df) <- row.names(exp2_bact_meta_rel)
+richness_est_bact_cluster <- richness_est_bact[which(unlist(row.names(richness_est_bact)) %in% row.names(vec_df)),]
+richness_est_bact_cluster <- cbind(richness_est_bact_cluster, vec_df)
+#Save as .csv
 
 
-plot2
+############################FIGURE S8C: 16S DMM TAXA BARPLOT############################
 
-#Adds arrows and labels, ensures labels overlap as little as possible
-plot2 +
+sample_data(exp2_bact_prev)$cluster <- vec
+
+###Merge samples by cluster###
+exp2_bact_merged = merge_samples(exp2_bact_prev, "cluster")
+exp2_bact_gen_merged <- tax_glom(exp2_bact_merged, taxrank = 'Genus')
+
+###Get top 19 genera and an Other entry for all others###
+top20_bact_prev_list <- names(sort(taxa_sums(exp2_bact_gen_merged), decreasing=TRUE)[1:19])
+top20_prev_bact_rel <- transform_sample_counts(exp2_bact_gen_merged, function(x) x / sum(x) )
+top20_prev_bact_df <- psmelt(top20_prev_bact_rel)
+top20_prev_bact_df[!(top20_prev_bact_df$OTU %in% top20_bact_prev_list),]$Genus <- 'Other'
+
+
+###Plot barplot###
+barplot_colors <- colorRampPalette(brewer.pal(12, "Paired"))(20)
+
+barplot_gen_bpd_bact <- ggplot(top20_prev_bact_df, aes(x = Sample, y = Abundance, fill = Genus)) +
+  geom_col(position = "stack") +
   theme_bw() +
-  geom_segment(
-    data = veg_12,
-    aes(
-      x = 0,
-      y = 0,
-      xend = CCA1,
-      yend = CCA2
-    ),
-    arrow = arrow(length = unit(0.5, "cm"))
-  ) +
-  geom_text_repel(
-    data = veg_12,
-    aes(x = CCA1, y = CCA2, label = veg_12$env),
-    nudge_y = -0.05,
-    color = "black",
-    size = 3
-  ) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18))
+  theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", plot.margin = unit(c(0.5,0.5,0.5,1),"cm"), legend.title = element_blank()) +
+  theme(axis.text.x = element_text(size=8.5)) +
+  theme(axis.text.x = element_text(angle=90)) 
+
+barplot_gen_bpd_bact + scale_fill_manual(values = barplot_colors)
 #Save
 
 
-############################FIGURE E7D: ALL ITS DMM 5 CLUSTERS VARIABLE IMPORTANCE############################
+############################FIGURE S8D: 16S PPRD DMM PCoA############################
 
-#Get fitted values
-for (k in seq(ncol(fitted(best_dmn)))) {
-  d <- melt(fitted(best_dmn))
-  colnames(d) <- c("OTU", "cluster", "value")
-  print(d)
-}
+exp2_bact_tse_pprd <- makeTreeSEFromPhyloseq(exp2_bact_prev_pprd)
 
-###Get important variables and arrange them in descending order###
-exp2_fung_tax_rel_genonly <- data.frame(new_col = c(exp2_fung_tax_rel$Genus, exp2_fung_tax_rel$Genus, exp2_fung_tax_rel$Genus, exp2_fung_tax_rel$Genus, exp2_fung_tax_rel$Genus))
-d <- d %>%
-  mutate(Genus = exp2_fung_tax_rel_genonly) %>%
-  arrange(value) %>%
-  mutate(OTU = factor(OTU, levels = unique(OTU))) %>%
-  # Only show the most important drivers
-  filter(abs(value) > quantile(abs(value), 0.80))
-print(d)
-
-###Plot Cluster 1###
-d1 <- subset(d, d$cluster == 1)
-d1 <- d1 %>% top_n(10, value)
-p1 <- ggplot(d1, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 1")) +
-  theme_bw()
-print(p1)
-#Save
-
-###Plot Cluster 2###
-d2 <- subset(d, d$cluster == 2)
-d2 <- d2 %>% top_n(10, value)
-p2 <- ggplot(d2, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 2")) +
-  theme_bw()
-print(p2)
-#Save
-
-###Plot Cluster 3###
-d3 <- subset(d, d$cluster == 3)
-d3 <- d3 %>% top_n(10, value)
-p3 <- ggplot(d3, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 3")) +
-  theme_bw()
-print(p3)
-#Save
-
-###Plot Cluster 4###
-d4 <- subset(d, d$cluster ==4)
-d4 <- d4 %>% top_n(10, value)
-p4 <- ggplot(d4, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 4")) +
-  theme_bw()
-print(p4)
-#Save
-
-###Plot Cluster 5###
-d5 <- subset(d, d$cluster == 5)
-d5 <- d5 %>% top_n(10, value)
-p5 <- ggplot(d5, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 5")) +
-  theme_bw()
-print(p5)
-#Save
-
-
-############################FIGURE E7E: ALL ITS DMM 5 CLUSTERS CCA############################
-
-#Get clinical data
-exp2_fung_meta_rel <- as.data.frame(exp2_fung_meta_rel)
-cols <- c("BPD","BPD_Severity","Died","Sex","BPD_Sex","Feeding","Multiples","IUGR","UTI","Pre.E","CS","NEC...2","Pneumonia","Intubation","C..Sepsis","C..Sepsis.1","Dominance","cluster")
-exp2_fung_meta_rel[cols] <- lapply(exp2_fung_meta_rel[cols], factor)
-
-#Reorder factors
-sapply(exp2_fung_meta_rel, class)
-exp2_fung_meta_rel <- as.data.frame(exp2_fung_meta_rel[,c(1,3,4,6,7,8,24,25,26,27)])
-exp2_fung_meta_rel$BPD<- factor(exp2_fung_meta_rel$BPD, levels=c('PPRD', 'BPD'))
-exp2_fung_meta_rel$Died<- factor(exp2_fung_meta_rel$Died, levels=c('Survived', 'Died'))
-exp2_fung_meta_rel$cluster<- factor(exp2_fung_meta_rel$cluster, levels=c('Cluster 4', 'Cluster 1', 'Cluster 2', 'Cluster 3', 'Cluster 5'))
-cca_result <- cca(exp2_fung_otu_rel, exp2_fung_meta_rel)
-
-#summary of the data
-summary(cca_result)
-plot(cca_result)
-
-#extracting data: clinical metadata
-veg_1 = as.data.frame(cca_result$CCA$biplot)
-row.names(veg_1) <- c("BPD","Died","AMAB","GA","BW","CRIB.II","Low_Evenness","Fungi_Abundance","CRP","comp1","comp2","comp3","comp5" )
-veg_1["env"] = row.names(veg_1)
-
-#extracting data: samples
-veg_2 = as.data.frame(cca_result$CCA$u)
-veg_2["samples"] = row.names(veg_2)
-
-#extracting data: taxa
-veg_3 = as.data.frame(cca_result$CCA$v)
-veg_3["genus"] = row.names(veg_3)
-
-
-#Plot points
-plot = ggplot() +
-  geom_point(data = veg_3, aes(x = CCA1, y = CCA2), color = "#AFEE91", size = 1.0) +
-  geom_point(data = veg_2, aes(x = CCA1, y = CCA2), color = "#0B8700", size = 2.0) +
-  geom_point(data = veg_1, aes(x = CCA1, y = CCA2), color = "black")
-
-
-plot
-
-#Plot arrows and labels
-plot +
-  theme_bw() +
-  geom_segment(
-    data = veg_1,
-    aes(
-      x = 0,
-      y = 0,
-      xend = CCA1,
-      yend = CCA2
-    ),
-    arrow = arrow(length = unit(0.5, "cm"))
-  ) +
-  geom_text_repel(
-    data = veg_1,
-    aes(x = CCA1, y = CCA2, label = veg_1$env),
-    nudge_y = -0.05,
-    color = "black",
-    size = 3
-  ) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18))
-#Save
-
-
-############################FIGURE E7F: BPD ONLY ITS DMM LAPLACE PLOT############################
-
-exp2_fung_tse_bpd <- makeTreeSEFromPhyloseq(exp2_fung_prev_bpd)
-
-#Get best k value
 set.seed(1312)
-tse_dmn_bpd <- mia::runDMN(exp2_fung_tse_bpd, name = "DMN", k = 1:7)
-getDMN(tse_dmn_bpd)
-
-#Laplace plot
-plotDMNFit(tse_dmn_bpd, type = "laplace")
-#DMM with k=3
-best_dmn_bpd <- getBestDMNFit(tse_dmn_bpd, type = "laplace")
-
-
-############################FIGURE E7G: BPD ONLY ITS DMM VARIABLE IMPORTANCE############################
-
-exp2_fung_tax_rel_bpd$Genus <- make.unique(exp2_fung_tax_rel_bpd$Genus)
-
-#Get fitted values
-for (k in seq(ncol(fitted(best_dmn_bpd)))) {
-  d_bpd <- melt(fitted(best_dmn_bpd))
-  colnames(d_bpd) <- c("OTU", "cluster", "value")
-  print(d_bpd)
-}
-
-#Get top fitted values
-exp2_fung_tax_rel_bpd_genonly <- data.frame(new_col = c(exp2_fung_tax_rel_bpd$Genus, exp2_fung_tax_rel_bpd$Genus, exp2_fung_tax_rel_bpd$Genus))
-d_bpd <- d_bpd %>%
-  mutate(Genus = exp2_fung_tax_rel_bpd_genonly) %>%
-  arrange(value) %>%
-  mutate(OTU = factor(OTU, levels = unique(OTU))) %>%
-  # Only show the most important drivers
-  filter(abs(value) > quantile(abs(value), 0.70))
-print(d_bpd)
-
-#Plot Cluster 1
-d1_bpd <- subset(d_bpd, d_bpd$cluster == 1)
-d1_bpd <- d1_bpd %>% top_n(10, value)
-p1_bpd <- ggplot(d1_bpd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 1")) +
-  theme_bw()
-print(p1_bpd)
-#Save
-
-#Plot Cluster 2
-d2_bpd <- subset(d_bpd, d_bpd$cluster == 2)
-d2_bpd <- d2_bpd %>% top_n(10, value)
-p2_bpd <- ggplot(d2_bpd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 2")) +
-  theme_bw()
-print(p2_bpd)
-#Save
-
-#Plot Cluster 3
-d3_bpd <- subset(d_bpd, d_bpd$cluster == 3)
-d3_bpd <- d3_bpd %>% top_n(10, value)
-p3_bpd <- ggplot(d3_bpd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 3")) +
-  theme_bw()
-print(p3_bpd)
-#Save
-
-
-############################FIGURE E7H: BPD ONLY ITS DMM CCA############################
-
-#Get clinical data
-exp2_fung_meta_rel_bpd <- as.data.frame(exp2_fung_meta_rel_bpd)
-cols <- c("BPD","BPD_Severity","Died","Sex","BPD_Sex","Feeding","Multiples","IUGR","UTI","Pre.E","CS","NEC...2","Pneumonia","Intubation","C..Sepsis","C..Sepsis.1","Dominance","dmm_component")
-exp2_fung_meta_rel_bpd[cols] <- lapply(exp2_fung_meta_rel_bpd[cols], factor)
-
-#Reorder factors
-sapply(exp2_fung_meta_rel_bpd, class)
-exp2_fung_meta_rel_bpd <- as.data.frame(exp2_fung_meta_rel_bpd[,c(1,3,4,6,7,8,24,25,26,27)])
-exp2_fung_meta_rel_bpd$BPD<- factor(exp2_fung_meta_rel_bpd$BPD, levels=c('PPRD', 'BPD'))
-exp2_fung_meta_rel_bpd$Died<- factor(exp2_fung_meta_rel_bpd$Died, levels=c('Survived', 'Died'))
-exp2_fung_meta_rel_bpd$dmm_component<- factor(exp2_fung_meta_rel_bpd$dmm_component, levels=c('Cluster 3','Cluster 1', 'Cluster 2'))
-cca_result_bpd <- cca(exp2_fung_otu_rel_bpd, exp2_fung_meta_rel_bpd)
-
-#summary of the data
-summary(cca_result_bpd)
-plot(cca_result_bpd)
-
-#Extract metadata
-veg_1_bpd = as.data.frame(cca_result_bpd$CCA$biplot)
-row.names(veg_1_bpd) <- c("Died","AMAB","GA","BW","CRIB.II","Low_Evenness","Fungi_Abundance","CRP","comp1","comp2")
-veg_1_bpd["env"] = row.names(veg_1_bpd)
-
-#Extract sample data
-veg_2_bpd = as.data.frame(cca_result_bpd$CCA$u)
-veg_2_bpd["samples"] = row.names(veg_2_bpd)
-
-#Extract taxa
-veg_3_bpd = as.data.frame(cca_result_bpd$CCA$v)
-veg_3_bpd["genus"] = row.names(veg_3_bpd)
-
-#Plot points
-plot_bpd = ggplot() +
-  geom_point(data = veg_3_bpd, aes(x = CCA1, y = CCA2), color = "#AFEE91", size = 1.0) +
-  geom_point(data = veg_2_bpd, aes(x = CCA1, y = CCA2), color = "#0B8700", size = 2.0) +
-  geom_point(data = veg_1_bpd, aes(x = CCA1, y = CCA2), color = "black")
-
-
-plot_bpd
-
-#Plot arrows and labels
-plot_bpd +
-  theme_bw() +
-  geom_segment(
-    data = veg_1_bpd,
-    aes(
-      x = 0,
-      y = 0,
-      xend = CCA1,
-      yend = CCA2
-    ),
-    arrow = arrow(length = unit(0.5, "cm"))
-  ) +
-  geom_text_repel(
-    data = veg_1_bpd,
-    aes(x = CCA1, y = CCA2, label = veg_1_bpd$env),
-    nudge_y = -0.05,
-    color = "black",
-    size = 3
-  ) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18))
-#Save
-
-
-############################FIGURE E7I: PPRD ONLY ITS DMM LAPLACE PLOT############################
-
-exp2_fung_tse_pprd <- makeTreeSEFromPhyloseq(exp2_fung_prev_pprd)
-
-#Get best k value
-set.seed(1312)
-tse_dmn_pprd <- mia::runDMN(exp2_fung_tse_pprd, name = "DMN", k = 1:7)
+tse_dmn_pprd <- mia::runDMN(exp2_bact_tse_pprd, name = "DMN", k = 1:7)
 getDMN(tse_dmn_pprd)
 
-#Laplace plot
 plotDMNFit(tse_dmn_pprd, type = "laplace")
-#Best model, k=3
+
+#We chose two clusters because in this context the first dip in Laplace value is probably a better metric of ideal k than the lowest Laplace value
+set.seed(1312)
+tse_dmn_pprd <- mia::runDMN(exp2_bact_tse_pprd, name = "DMN", k = 2)
 best_dmn_pprd <- getBestDMNFit(tse_dmn_pprd, type = "laplace")
 
+prob_pprd <- DirichletMultinomial::mixture(getBestDMNFit(tse_dmn_pprd))
+# Add column names
+colnames(prob_pprd) <- c("Cluster 1", "Cluster 2")
 
-############################FIGURE E7J: PPRD ONLY ITS DMM VARIABLE IMPORTANCE############################
+# For each row, finds column that has the highest value. Then extract the column 
+# names of highest values.
+vec_pprd <- colnames(prob_pprd)[max.col(prob_pprd,ties.method = "first")]
 
-exp2_fung_tax_rel_pprd$Genus <- make.unique(exp2_fung_tax_rel_pprd$Genus)
+exp2_bact_rel_prev_pprd <- transform_sample_counts(exp2_bact_prev_pprd, function(x) x / sum(x) )
 
-#Get fitted values
-for (k in seq(ncol(fitted(best_dmn_pprd)))) {
-  d_pprd <- melt(fitted(best_dmn_pprd))
-  colnames(d_pprd) <- c("OTU", "cluster", "value")
-  print(d_pprd)
-}
+exp2_bact_otu_rel_pprd <- as.data.frame(t(exp2_bact_rel_prev_pprd@otu_table))
+exp2_bact_tax_rel_pprd <- as.data.frame(exp2_bact_rel_prev_pprd@tax_table)
+exp2_bact_meta_rel_pprd <- as.data.frame(exp2_bact_rel_prev_pprd@sam_data)
+exp2_bact_meta_rel_pprd <- cbind(exp2_bact_meta_rel_pprd,
+                                     dmm_component = vec_pprd)
 
-#Get top fitted values
-exp2_fung_tax_rel_pprd_genonly <- data.frame(new_col = c(exp2_fung_tax_rel_pprd$Genus, exp2_fung_tax_rel_pprd$Genus, exp2_fung_tax_rel_pprd$Genus))
-d_pprd <- d_pprd %>%
-  mutate(Genus = exp2_fung_tax_rel_pprd_genonly) %>%
-  arrange(value) %>%
-  mutate(OTU = factor(OTU, levels = unique(OTU))) %>%
-  # Only show the most important drivers
-  filter(abs(value) > quantile(abs(value), 0.70))
-print(d_pprd)
+exp2_bact_rel_bray_pprd = vegdist(exp2_bact_otu_rel_pprd, method='bray')
+exp2_bact_rel_pcoa_pprd <- ape::pcoa(exp2_bact_rel_bray_pprd)
+bray_pcoa_df_pprd <- exp2_bact_rel_pcoa_pprd$vectors[,1:2]
 
-#Plot Cluster 1
-d1_pprd <- subset(d_pprd, d_pprd$cluster == 1)
-d1_pprd <- d1_pprd %>% top_n(10, value)
-p1_pprd <- ggplot(d1_pprd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 1")) +
-  theme_bw()
-print(p1_pprd)
-#Save
+bray_dmm_pcoa_df_pprd <- cbind(bray_pcoa_df_pprd,
+                               dmm_component = vec_pprd)
 
-#Plot Cluster 2
-d2_pprd <- subset(d_pprd, d_pprd$cluster == 2)
-d2_pprd <- d2_pprd %>% top_n(10, value)
-p2_pprd <- ggplot(d2_pprd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 2")) +
-  theme_bw()
-print(p2_pprd)
-#Save
+factor_exp2_pprd <- as.factor(bray_dmm_pcoa_df_pprd[,3])
+type_exp2_pprd <- as.numeric(factor_exp2_pprd)
+dmm_colors_pprd <- c("#8FD96C","#228019")
 
-#Plot Cluster 3
-d3_pprd <- subset(d_pprd, d_pprd$cluster == 3)
-d3_pprd <- d3_pprd %>% top_n(10, value)
-p3_pprd <- ggplot(d3_pprd, aes(x = reorder(Genus$new_col, value), y = value)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = paste("Top drivers: community type 3")) +
-  theme_bw()
-print(p3_pprd)
-#Save
+###Plot PCoA###
+dpi=600
+tiff("Fig S8D.tif", width=5*dpi, height=5*dpi, res=dpi)
+plot(c(-0.6, 0.4), c(-0.4, 0.5), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
+points(exp2_bact_rel_pcoa_pprd$vectors[,1:2], pch = 21, cex = 1.3, bg = dmm_colors_pprd[type_exp2_pprd], lwd = 1)
+ordiellipse(exp2_bact_rel_pcoa_pprd$vectors[,1:2], factor_exp2_pprd)
+ordispider(exp2_bact_rel_pcoa_pprd$vectors[,1:2], factor_exp2_pprd, label = TRUE)
+dev.off()
 
 
-############################FIGURE E7K: PPRD ONLY ITS DMM CCA############################
+############################FIGURE S8E: 16S PPRD DMM ALPHA DIVERSITY############################
 
-#Metadata
-exp2_fung_meta_rel_pprd <- as.data.frame(exp2_fung_meta_rel_pprd)
-cols <- c("BPD","BPD_Severity","Died","Sex","BPD_Sex","Feeding","Multiples","IUGR","UTI","Pre.E","CS","NEC...2","Pneumonia","Intubation","C..Sepsis","C..Sepsis.1","Dominance","dmm_component")
-exp2_fung_meta_rel_pprd[cols] <- lapply(exp2_fung_meta_rel_pprd[cols], factor)
+vec_pprd_df <- as.data.frame(vec_pprd)
+row.names(vec_pprd_df) <- row.names(exp2_bact_meta_rel_pprd)
+richness_est_bact_cluster_pprd <- richness_est_bact[which(unlist(row.names(richness_est_bact)) %in% row.names(vec_pprd_df)),]
 
-#Reorder metadata factors
-sapply(exp2_fung_meta_rel_pprd, class)
-exp2_fung_meta_rel_pprd <- as.data.frame(exp2_fung_meta_rel_pprd[,c(3,4,6,7,8,24,25,26,27)])
-exp2_fung_meta_rel_pprd$Died<- factor(exp2_fung_meta_rel_pprd$Died, levels=c('Survived', 'Died'))
-exp2_fung_meta_rel_pprd$dmm_component<- factor(exp2_fung_meta_rel_pprd$dmm_component, levels=c('Cluster 3','Cluster 1', 'Cluster 2'))
-cca_result_pprd <- cca(exp2_fung_otu_rel_pprd, exp2_fung_meta_rel_pprd)
+wilcox_alpha_bact <- t(sapply(richness_est_bact_cluster_pprd, function(x) unlist(kruskal.test(x~vec_pprd_df$vec)[c("estimate","p.value","statistic","conf.int")])))
+wilcox_alpha_bact
 
-#summary
-summary(cca_result_pprd)
-plot(cca_result_pprd)
-
-#Extract metadata
-veg_1_pprd = as.data.frame(cca_result_pprd$CCA$biplot)
-row.names(veg_1_pprd) <- c("AMAB","GA","BW","CRIB.II","Low_Evenness","Fungi_Abundance","CRP","comp1","comp2")
-veg_1_pprd["env"] = row.names(veg_1_pprd)
-
-#Extract sample data
-veg_2_pprd = as.data.frame(cca_result_pprd$CCA$u)
-veg_2_pprd["samples"] = row.names(veg_2_pprd)
-
-#Extract taxa
-veg_3_pprd = as.data.frame(cca_result_pprd$CCA$v)
-veg_3_pprd["genus"] = row.names(veg_3_pprd)
-
-#Plot points
-plot_pprd = ggplot() +
-  geom_point(data = veg_3_pprd, aes(x = CCA1, y = CCA2), color = "#AFEE91", size = 1.0) +
-  geom_point(data = veg_2_pprd, aes(x = CCA1, y = CCA2), color = "#0B8700", size = 2.0) +
-  geom_point(data = veg_1_pprd, aes(x = CCA1, y = CCA2), color = "black")
+richness_est_bact_cluster_pprd <- cbind(richness_est_bact_cluster_pprd, vec_pprd_df)
+#Save and plot in GraphPad
 
 
-plot_pprd
+############################FIGURE S8F: 16S PPRD DMM TAXA BARPLOT############################
 
-#Plot arrows and labels
-plot_pprd +
+sample_data(exp2_bact_prev_pprd)$cluster <- vec_pprd
+exp2_bact_merged_pprd = merge_samples(exp2_bact_prev_pprd, "cluster")
+exp2_bact_gen_merged_pprd <- tax_glom(exp2_bact_merged_pprd, taxrank = 'Genus')
+
+###Get top 19 genera and create an "Other" designation for all other genera###
+top20_bact_prev_list_pprd <- names(sort(taxa_sums(exp2_bact_gen_merged_pprd), decreasing=TRUE)[1:19])
+top20_prev_bact_rel_pprd <- transform_sample_counts(exp2_bact_gen_merged_pprd, function(x) x / sum(x) )
+top20_prev_bact_df_pprd <- psmelt(top20_prev_bact_rel_pprd)
+top20_prev_bact_df_pprd[!(top20_prev_bact_df_pprd$OTU %in% top20_bact_prev_list_pprd),]$Genus <- 'Other'
+
+###Plot###
+barplot_gen_pprd_bact_pprd <- ggplot(top20_prev_bact_df_pprd, aes(x = Sample, y = Abundance, fill = Genus)) +
+  geom_col(position = "stack") +
   theme_bw() +
-  geom_segment(
-    data = veg_1_pprd,
-    aes(
-      x = 0,
-      y = 0,
-      xend = CCA1,
-      yend = CCA2
-    ),
-    arrow = arrow(length = unit(0.5, "cm"))
-  ) +
-  geom_text_repel(
-    data = veg_1_pprd,
-    aes(x = CCA1, y = CCA2, label = veg_1_pprd$env),
-    nudge_y = -0.05,
-    color = "black",
-    size = 3
-  ) +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 18))
+  theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", plot.margin = unit(c(0.5,0.5,0.5,1),"cm"), legend.title = element_blank()) +
+  theme(axis.text.x = element_text(size=8.5)) +
+  theme(axis.text.x = element_text(angle=90)) 
+
+barplot_gen_pprd_bact_pprd + scale_fill_manual(values = barplot_colors)
+#Save
+
+
+############################FIGURE S8G: 16S BPD DMM PCoA############################
+
+exp2_bact_tse_bpd <- makeTreeSEFromPhyloseq(exp2_bact_prev_bpd)
+
+set.seed(1312)
+tse_dmn_bpd <- mia::runDMN(exp2_bact_tse_bpd, name = "DMN", k = 1:7)
+best_dmn_bpd <- getBestDMNFit(tse_dmn_bpd, type = "laplace")
+
+prob_bpd <- DirichletMultinomial::mixture(getBestDMNFit(tse_dmn_bpd))
+
+colnames(prob_bpd) <- c("Cluster 1", "Cluster 2")
+
+vec_bpd <- colnames(prob_bpd)[max.col(prob_bpd,ties.method = "first")]
+
+exp2_bact_rel_prev_bpd <- transform_sample_counts(exp2_bact_prev_bpd, function(x) x / sum(x) )
+
+exp2_bact_otu_rel_bpd <- as.data.frame(t(exp2_bact_rel_prev_bpd@otu_table))
+exp2_bact_tax_rel_bpd <- as.data.frame(exp2_bact_rel_prev_bpd@tax_table)
+exp2_bact_meta_rel_bpd <- as.data.frame(exp2_bact_rel_prev_bpd@sam_data)
+exp2_bact_meta_rel_bpd <- cbind(exp2_bact_meta_rel_bpd,
+                                    dmm_component = vec_bpd)
+
+###Ordinate with Bray-Curtis dissimilarity###
+exp2_bact_rel_bray_bpd = vegdist(exp2_bact_otu_rel_bpd, method='bray')
+exp2_bact_rel_pcoa_bpd <- ape::pcoa(exp2_bact_rel_bray_bpd)
+bray_pcoa_df_bpd <- exp2_bact_rel_pcoa_bpd$vectors[,1:2]
+
+bray_dmm_pcoa_df_bpd <- cbind(bray_pcoa_df_bpd,
+                              dmm_component = vec_bpd)
+
+factor_exp2_bpd <- as.factor(bray_dmm_pcoa_df_bpd[,3])
+type_exp2_bpd <- as.numeric(factor_exp2_bpd)
+dmm_colors_all_bpd <- c("#8FD96C","#228019")
+
+###Plot###
+dpi=600
+tiff("Fig S8G.tif", width=5*dpi, height=5*dpi, res=dpi)
+plot(c(-0.5, 0.5), c(-0.4, 0.5), font = 2, font.lab = 2, xlab="PC1", ylab="PC2", type="n")
+points(exp2_bact_rel_pcoa_bpd$vectors[,1:2], pch = 21, cex = 1.3, bg = dmm_colors_all_bpd[type_exp2_bpd], lwd = 1)
+ordiellipse(exp2_bact_rel_pcoa_bpd$vectors[,1:2], factor_exp2_bpd)
+ordispider(exp2_bact_rel_pcoa_bpd$vectors[,1:2], factor_exp2_bpd, label = TRUE)
+dev.off()
+
+
+############################FIGURE S8H: 16S BPD DMM ALPHA DIVERSITY############################
+
+vec_bpd_df <- as.data.frame(vec_bpd)
+row.names(vec_bpd_df) <- row.names(exp2_bact_meta_rel_bpd)
+richness_est_bact_cluster_bpd <- richness_est_bact[which(unlist(row.names(richness_est_bact)) %in% row.names(vec_bpd_df)),]
+
+wilcox_alpha_bact <- t(sapply(richness_est_bact_cluster_bpd, function(x) unlist(kruskal.test(x~vec_bpd_df$vec)[c("estimate","p.value","statistic","conf.int")])))
+wilcox_alpha_bact
+
+richness_est_bact_cluster_bpd <- cbind(richness_est_bact_cluster_bpd, vec_bpd_df)
+#Save and plot in GraphPad
+
+
+############################FIGURE S8I: 16S BPD DMM TAXA BARPLOT############################
+
+sample_data(exp2_bact_prev_bpd)$cluster <- vec_bpd
+exp2_bact_merged_bpd = merge_samples(exp2_bact_prev_bpd, "cluster")
+exp2_bact_gen_merged_bpd <- tax_glom(exp2_bact_merged_bpd, taxrank = 'Genus')
+
+###Get top 19 genera and create an "Other" designation for all other genera###
+top20_bact_prev_list_bpd <- names(sort(taxa_sums(exp2_bact_gen_merged_bpd), decreasing=TRUE)[1:19])
+top20_prev_bact_rel_bpd <- transform_sample_counts(exp2_bact_gen_merged_bpd, function(x) x / sum(x) )
+top20_prev_bact_df_bpd <- psmelt(top20_prev_bact_rel_bpd)
+top20_prev_bact_df_bpd[!(top20_prev_bact_df_bpd$OTU %in% top20_bact_prev_list_bpd),]$Genus <- 'Other'
+
+###Plot###
+barplot_gen_bpd_bact_bpd <- ggplot(top20_prev_bact_df_bpd, aes(x = Sample, y = Abundance, fill = Genus)) +
+  geom_col(position = "stack") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", plot.margin = unit(c(0.5,0.5,0.5,1),"cm"), legend.title = element_blank()) +
+  theme(axis.text.x = element_text(size=8.5)) +
+  theme(axis.text.x = element_text(angle=90)) 
+
+barplot_gen_bpd_bact_bpd + scale_fill_manual(values = barplot_colors)
 #Save
