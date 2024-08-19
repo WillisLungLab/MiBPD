@@ -12,7 +12,7 @@ library(FSA)
 library(ecole)
 
 
-############################FIGURE 3A: ITS ALPHA DIVERSITY############################
+############################FIGURE 2A: ITS ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_fung <- prune_taxa(taxa_sums(exp2_fung_rough) > 0, exp2_fung_rough)
@@ -43,7 +43,7 @@ richness_est_fung <- richness_est_fung %>%
 #Save as .csv and use in GraphPad
 
 
-############################FIGURE 3B: 16S ALPHA DIVERSITY############################
+############################FIGURE 2B: 16S ALPHA DIVERSITY############################
 
 #Remove taxa that aren't present in any sample
 fr_bact <- prune_taxa(taxa_sums(exp2_bact_rough) > 0, exp2_bact_rough)
@@ -71,7 +71,7 @@ richness_est_bact <- richness_est_bact %>%
 #Save as .csv
 
 
-############################FIGURE 3C: ITS BETA DIVERSITY PCoA############################
+############################FIGURE 2C: ITS BETA DIVERSITY PCoA############################
 
 #Convert to relative abundance instead of counts
 exp2_fung_rel_prev <- transform_sample_counts(exp2_fung_prev, function(x) x / sum(x) )
@@ -119,7 +119,7 @@ print(pairwise_permanova_fung_pcoa)
 print(permdisp_fung_pcoa)
 
 
-############################FIGURE 3D: 16S BETA DIVERSITY PCoA############################
+############################FIGURE 2D: 16S BETA DIVERSITY PCoA############################
 
 exp2_bact_rel_prev <- transform_sample_counts(exp2_bact_prev, function(x) x / sum(x) )
 
@@ -165,7 +165,7 @@ print(pairwise_permanova_bact_pcoa)
 print(permdisp_bact_pcoa)
 
 
-############################FIGURE 3E: PPRD AMAB SPIEC-EASI NETWORK############################
+############################FIGURE 2E: NOBPD AMAB SPIEC-EASI NETWORK############################
 
 ###DATA PREP###
 exp2_combined_30_gen <- filter_taxa(exp2_combined_30_gen, function(x) sum(x >= 1) > (0.30*length(x)), TRUE)
@@ -213,7 +213,7 @@ nodes_pprd_amab <- gorder(spiec.graph.gen.pprd.amab)
 edges_pprd_amab <- gsize(spiec.graph.gen.pprd.amab)
 
 
-############################Figure 3F: PPRD AFAB SPIEC-EASI NETWORK############################
+############################Figure 2F: NOBPD AFAB SPIEC-EASI NETWORK############################
 
 #Run SPIEC-EASI
 se.exp2.gen.pprd.afab <- spiec.easi(list(exp2_combined_16s_pprd_afab, exp2_combined_its_pprd_afab), method='mb', nlambda=99,
@@ -236,7 +236,7 @@ nodes_pprd_afab <- gorder(spiec.graph.gen.pprd.afab)
 edges_pprd_afab <- gsize(spiec.graph.gen.pprd.afab)
 
 
-############################Figure 3G: BPD AMAB SPIEC-EASI NETWORK############################
+############################Figure 2G: BPD AMAB SPIEC-EASI NETWORK############################
 
 set.seed(1312)
 se.exp2.gen.bpd.amab <- spiec.easi(list(exp2_combined_16s_bpd_amab, exp2_combined_its_bpd_amab), method='mb', nlambda=99,
@@ -257,7 +257,7 @@ nodes_bpd_amab <- gorder(spiec.graph.gen.bpd.amab)
 edges_bpd_amab <- gsize(spiec.graph.gen.bpd.amab)
 
 
-############################Figure 3H: BPD AFAB SPIEC-EASI NETWORK############################
+############################Figure 2H: BPD AFAB SPIEC-EASI NETWORK############################
 
 se.exp2.gen.bpd.afab <- spiec.easi(list(exp2_combined_16s_bpd_afab, exp2_combined_its_bpd_afab), method='mb', nlambda=99,
                                    lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))
