@@ -162,7 +162,7 @@ plot +
 #Save
 
 
-############################FIGURE S7D: PPRD ONLY ITS DMM LAPLACE PLOT############################
+############################FIGURE S7D: NOBPD ONLY ITS DMM LAPLACE PLOT############################
 
 exp2_fung_tse_pprd <- makeTreeSEFromPhyloseq(exp2_fung_prev_pprd)
 
@@ -176,7 +176,7 @@ plotDMNFit(tse_dmn_pprd, type = "laplace")
 best_dmn_pprd <- getBestDMNFit(tse_dmn_pprd, type = "laplace")
 
 
-############################FIGURE S7E: PPRD ONLY ITS DMM VARIABLE IMPORTANCE############################
+############################FIGURE S7E: NOBPD ONLY ITS DMM VARIABLE IMPORTANCE############################
 
 exp2_fung_tax_rel_pprd$Genus <- make.unique(exp2_fung_tax_rel_pprd$Genus)
 
@@ -220,7 +220,7 @@ print(p2_pprd)
 #Save
 
 
-############################FIGURE S7F: PPRD ONLY ITS DMM CCA############################
+############################FIGURE S7F: NOBPD ONLY ITS DMM CCA############################
 
 md_fung_newfactors_sort_pprd <- md_fung_newfactors_sort[md_fung_newfactors_sort$BPD == "No_BPD",]
 md_fung_newfactors_sort_pprd$cluster <- vec_pprd
