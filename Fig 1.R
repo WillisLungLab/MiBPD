@@ -260,20 +260,20 @@ exp2_combined_its_bpd = subset_samples(exp2_combined_its, BPD=="BPD")
 exp2_combined_its_pprd = subset_samples(exp2_combined_its, BPD=="No_BPD")
 
 
-############################FIGURE 1G: PPRD SPIEC-EASI NETWORK############################
+############################FIGURE 1G: NOBPD SPIEC-EASI NETWORK############################
 
-###PPRD SPIEC-EASI###
+###NOBPD SPIEC-EASI###
 set.seed(1312)
 se.exp2.gen.pprd <- spiec.easi(list(exp2_combined_16s_pprd, exp2_combined_its_pprd), method='mb', nlambda=99,
                                lambda.min.ratio=1e-2, pulsar.params = list(thresh = 0.1))
 
-#PPRD only network plot with labels
+#NoBPD only network plot with labels
 spiec.graph.gen.pprd=adj2igraph(getRefit(se.exp2.gen.pprd), vertex.attr=list(name=taxa_names(exp2_combined_30_gen_noNA)))
 prev_gen_spiec_plot_pprd <- plot_network(spiec.graph.gen.pprd, exp2_combined_30_gen_noNA, type='taxa',label=NULL,color="Kingdom", point_size = 8, line_weight = 1)
 prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors) + geom_text(mapping = aes(label = Genus), size = 2)
 #Save
 
-##PPRD only network plot without labels
+#NoBPD only network plot without labels
 prev_gen_spiec_plot_pprd + scale_color_manual(values = spiec.colors)
 #Save
 
