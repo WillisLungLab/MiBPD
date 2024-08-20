@@ -5,6 +5,7 @@ library(vegan)
 library(ecole)
 
 ###DEFINE FUNCTION###
+#This function does some basic filtering and creates the phyloseq object
 dada2_to_phyloseq <- function(asv,taxa,meta, read_count=100,prev_cutoff=0.05,samples_are_cols=TRUE,rough=FALSE){
   asv <- asv %>%
     tibble::column_to_rownames("Name")
@@ -62,6 +63,18 @@ dada2_to_phyloseq <- function(asv,taxa,meta, read_count=100,prev_cutoff=0.05,sam
   }
 }
 
+#This function performs alpha diversity significance testing
+alphadiv <- function(physeq, vari){
+  
+  #Remove OTUs with all 0s, they mess with analysis and are not necessary
+  physeq_zerorm <- prune_taxa(taxa_sums(physeq) > 0, physeq)
+  #Get Simpson and Shannon indices
+  richness <- estimate_richness(physeq_zerorm, measures = c("Simpson", "Shannon"))
+  kruskal <- t(sapply(richness, function(x) unlist(kruskal.test(x~physeq_zerorm@sam_data[[vari]])[c("estimate","p.value","statistic","conf.int")])))
+  print(kruskal) 
+  return(richness)
+  
+}
 
 ###DATA PREP###
 
@@ -103,7 +116,23 @@ exp3_lung_bact <- dada2_to_phyloseq(bact_fluco_lung,bact.fluco.lung.taxa,roughme
 exp3_lung_bact_prev <- filter_taxa(exp3_lung_bact, function(x) sum(x >= 1) > (0.05*length(x)), TRUE)
 
 
-###Fig. S13A: GUT ITS###
+###Fig. S13A: FLUCO GUT ITS ALPHA AND BETA DIVERSITY###
+
+###Alpha Diversity###
+
+alphadiv_fung_fluco_gut <- alphadiv(exp3_gut_fung_rough, "Sample.Name")
+
+alphadiv_fung_fluco_gut <- alphadiv_fung_fluco_gut %>%
+  mutate(
+    Organ = exp3_gut_fung_rough@sam_data[["Organ"]],
+    Oxygen = exp3_gut_fung_rough@sam_data[["condition"]],
+    Treatment = exp3_gut_fung_rough@sam_data[["treatment"]],
+    Sample.Name = exp3_gut_fung_rough@sam_data[["Sample.Name"]]
+  )
+
+#Save
+
+###Beta Diversity###
 
 exp3_gut_fung_rel_prev <- transform_sample_counts(exp3_gut_fung, function(x) x / sum(x) )
 
@@ -134,7 +163,7 @@ ordispider(exp3_gut_fung_rel_pcoa$vectors[,1:2], factor_exp3, label = TRUE)
 dev.off()
 
 #Run PERMANOVA
-permanova_pcoa_df$ <- data.frame(exp3_gut_fung_meta_rel)
+permanova_pcoa_df <- data.frame(exp3_gut_fung_meta_rel)
 set.seed(1312)
 permanova_fung_pcoa <- vegan::adonis2(exp3_gut_fung_otu_rel ~ Sample.Name, data = permanova_pcoa_df, method="bray", permutations = 10000)
 
@@ -149,9 +178,39 @@ print(permdisp_fung_pcoa)
 
 
 
-###Fig. S13B: GUT 16S###
+###Fig. S13B: FLUCO GUT 16S ALPHA AND BETA DIVERSITY###
 
-exp3_gut_bact_rel_prev <- transform_sample_counts(exp3_gut_bact_prev, function(x) x / sum(x) )
+###Alpha Diversity###
+
+alphadiv_bact_fluco_gut <- alphadiv(exp3_gut_bact_rough, "Sample.Name")
+
+alphadiv_bact_fluco_gut <- alphadiv_bact_fluco_gut %>%
+  mutate(
+    Organ = exp3_gut_bact_rough@sam_data[["Organ"]],
+    Oxygen = exp3_gut_bact_rough@sam_data[["condition"]],
+    Treatment = exp3_gut_bact_rough@sam_data[["treatment"]],
+    Sample.Name = exp3_gut_bact_rough@sam_data[["Sample.Name"]]
+  )
+
+#Save
+
+###Beta Diversity###
+
+alphadiv_fung_fluco_gut <- alphadiv(exp3_gut_fung_rough, "Sample.Name")
+
+alphadiv_fung_fluco_gut <- alphadiv_fung_fluco_gut %>%
+  mutate(
+    Organ = exp3_gut_fung_rough@sam_data[["Organ"]],
+    Oxygen = exp3_gut_fung_rough@sam_data[["condition"]],
+    Treatment = exp3_gut_fung_rough@sam_data[["treatment"]],
+    Sample.Name = exp3_gut_fung_rough@sam_data[["Sample.Name"]]
+  )
+
+#Save
+
+###Beta Diversity###
+
+exp3_gut_bact_rel_prev <- transform_sample_counts(exp3_gut_bact, function(x) x / sum(x) )
 
 exp3_gut_bact_otu_rel <- as.data.frame(t(exp3_gut_bact_rel_prev@otu_table))
 exp3_gut_bact_tax_rel <- as.data.frame(exp3_gut_bact_rel_prev@tax_table)
@@ -195,9 +254,25 @@ print(permdisp_bact_pcoa)
 
 
 
-###Fig. S13C: LUNG ITS###
+###Fig. S13C: FLUCO LUNG ITS ALPHA AND BETA DIVERSITY###
 
-exp3_lung_fung_rel_prev <- transform_sample_counts(exp3_lung_fung_prev, function(x) x / sum(x) )
+###Alpha Diversity###
+
+alphadiv_fung_fluco_lung <- alphadiv(exp3_lung_fung_rough, "Sample.Name")
+
+alphadiv_fung_fluco_lung <- alphadiv_fung_fluco_lung %>%
+  mutate(
+    Organ = exp3_lung_fung_rough@sam_data[["Organ"]],
+    Oxygen = exp3_lung_fung_rough@sam_data[["condition"]],
+    Treatment = exp3_lung_fung_rough@sam_data[["treatment"]],
+    Sample.Name = exp3_lung_fung_rough@sam_data[["Sample.Name"]]
+  )
+
+#Save
+
+###Beta Diversity###
+
+exp3_lung_fung_rel_prev <- transform_sample_counts(exp3_lung_fung, function(x) x / sum(x) )
 
 exp3_lung_fung_otu_rel <- as.data.frame(t(exp3_lung_fung_rel_prev@otu_table))
 exp3_lung_fung_tax_rel <- as.data.frame(exp3_lung_fung_rel_prev@tax_table)
@@ -211,8 +286,8 @@ exp3_lung_fung_rel_pcoa$values
 #Colors points according to BPD status
 factor_exp3 <- as.factor(exp3_lung_fung_meta_rel$Sample.Name)
 type_exp3 <- as.numeric(factor_exp3)
-pca_colors <- c("#94D57F","#B3B3B3")
-pca_colors2 <- c("#000000","#000000","#94D57F","#000000")
+pca_colors <- c("#94D57F","#FFFFFF","#B3B3B3","#FFFFFF")
+pca_colors2 <- c("#000000","#94D57F","#000000","#B3B3B3")
 ellipse_colors <- c("#94D57F","#B3B3B3","#94D57F","#B3B3B3")
 
 #Spider plot with the points and labeled centroids, with an ellipse representing the 95% confidence interval
@@ -241,9 +316,25 @@ print(permdisp_fung_pcoa)
 
 
 
-###Fig. S13D: LUNG 16S###
+###Fig. S13D: FLUCO LUNG 16S ALPHA AND BETA DIVERSITY###
 
-exp3_lung_bact_rel_prev <- transform_sample_counts(exp3_lung_bact_prev, function(x) x / sum(x) )
+###Alpha Diversity###
+
+alphadiv_bact_fluco_lung <- alphadiv(exp3_lung_bact_rough, "Sample.Name")
+
+alphadiv_bact_fluco_lung <- alphadiv_bact_fluco_lung %>%
+  mutate(
+    Organ = exp3_lung_bact_rough@sam_data[["Organ"]],
+    Oxygen = exp3_lung_bact_rough@sam_data[["condition"]],
+    Treatment = exp3_lung_bact_rough@sam_data[["treatment"]],
+    Sample.Name = exp3_lung_bact_rough@sam_data[["Sample.Name"]]
+  )
+
+#Save
+
+###Beta Diversity###
+
+exp3_lung_bact_rel_prev <- transform_sample_counts(exp3_lung_bact, function(x) x / sum(x) )
 
 exp3_lung_bact_otu_rel <- as.data.frame(t(exp3_lung_bact_rel_prev@otu_table))
 exp3_lung_bact_tax_rel <- as.data.frame(exp3_lung_bact_rel_prev@tax_table)
